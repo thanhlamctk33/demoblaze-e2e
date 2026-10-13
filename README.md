@@ -88,10 +88,11 @@ test (tests/)  →  fixture (src/fixtures)  →  Page Object / API client (src/p
 2. **Fixtures** — tests ask for what they need instead of building it. Example: `cartWith(Products.nexus6)` adds the product through the API and opens the cart page in one line.
 3. **API for setup, UI for the behaviour under test** — creating users or filling the cart goes through the API: faster and more stable.
 4. **Data-driven** — inputs come from CSV files in `test-data/`. Adding a row adds a test, no code needed.
-5. **Isolated runs** — every parallel worker gets its own user, so tests never share a cart.
-6. **Known bugs are tracked** — site defects are tests tagged `@known-bug`. They pass while the bug exists and fail when it is fixed, as a reminder to update them.
-7. **Traceability** — every test title starts with its test case ID, e.g. `[TC-ORDER-001]`.
-8. **Tags** — filter what to run: `@smoke`, `@regression`, `@api`, `@perf`, `@contract`, `@concurrency`, `@known-bug`.
+5. **Random realistic data** — usernames and passwords are generated with [Faker](https://fakerjs.dev). Each test records its seed in the report; rerun with `FAKER_SEED=<seed>` to get the same data.
+6. **Isolated runs** — every parallel worker gets its own user, so tests never share a cart.
+7. **Known bugs are tracked** — site defects are tests tagged `@known-bug`. They pass while the bug exists and fail when it is fixed, as a reminder to update them.
+8. **Traceability** — every test title starts with its test case ID, e.g. `[TC-ORDER-001]`.
+9. **Tags** — filter what to run: `@smoke`, `@regression`, `@api`, `@perf`, `@contract`, `@concurrency`, `@known-bug`.
 
 ## 5. Test types
 
@@ -115,6 +116,7 @@ Copy `.env.example` to `.env` to change settings (all optional):
 | `BASE_URL`, `API_URL`            | override the site / API address                 |
 | `TEST_USERNAME`, `TEST_PASSWORD` | use your own account instead of a generated one |
 | `HEADLESS=false`                 | show the browser                                |
+| `FAKER_SEED`                     | replay the random data of a failed test         |
 | `*_TIMEOUT`, `PERF_*`            | timeouts and performance budgets                |
 
 ## 7. Reports

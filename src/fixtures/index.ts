@@ -4,6 +4,7 @@ import { DemoblazeApi } from '../api/DemoblazeApi';
 import { config } from '../config';
 import type { Product } from '../data/catalog';
 import { buildUser, type UserCredentials } from '../data/factories';
+import { seedFaker } from '../data/random';
 import { CartPage, HomePage, ProductPage } from '../pages';
 
 export interface TestUser extends UserCredentials {
@@ -11,6 +12,7 @@ export interface TestUser extends UserCredentials {
 }
 
 interface TestFixtures {
+  fakerSeed: number;
   api: DemoblazeApi;
   homePage: HomePage;
   productPage: ProductPage;
@@ -34,7 +36,7 @@ export async function seedGuestIdentity(context: BrowserContext): Promise<void> 
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   testUser: [
-    async ({ playwright }, use, workerInfo) => {
+    async ({ playwright }, use) => {
       const request = await playwright.request.newContext();
       const api = new DemoblazeApi(request);
 
@@ -42,7 +44,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       if (config.credentials.username && config.credentials.password) {
         user = { username: config.credentials.username, password: config.credentials.password };
       } else {
-        user = buildUser({ username: `qa_auto_w${workerInfo.workerIndex}_${Date.now()}` });
+        user = buildUser();
         const signup = await api.signup(user.username, user.password);
         if (!signup.ok) throw new Error(`Could not provision test user: ${signup.error ?? signup.status}`);
       }
@@ -52,6 +54,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await request.dispose();
     },
     { scope: 'worker' },
+  ],
+
+  fakerSeed: [
+    async ({}, use, testInfo) => {
+      const seed = seedFaker();
+      testInfo.annotations.push({ type: 'faker seed', description: `${seed} (rerun with FAKER_SEED=${seed})` });
+      await use(seed);
+    },
+    { auto: true },
   ],
 
   context: async ({ context }, use) => {

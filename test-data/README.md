@@ -13,6 +13,7 @@ CSV files read by the tests at run time (UTF-8, first row = column names, quote 
 ## Rules
 
 - `tc_id` must match a case in [`../test-cases/`](../test-cases/README.md); it becomes the start of the test title, e.g. `[TC-ORDER-004]`.
+- `{{username}}` and `{{password}}` are replaced by realistic random values generated with [Faker](https://fakerjs.dev) when the test runs.
 - An empty cell means an empty input. Every form field is written out in each row, so a row reads as exactly what is typed.
 - `known_bug` (order-rejected.csv): leave empty for a normal `@regression` case. Put the defect ID and summary (e.g. `BUG-04: …`) to run the row as `@known-bug` with `test.fail()`; it passes while the bug exists and fails once the site is fixed, which is the signal to clear the cell.
 - Unique values (usernames, passwords) are not stored here: they are generated per run in `src/data/factories.ts` because DemoBlaze is a shared public site.

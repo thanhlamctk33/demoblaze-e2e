@@ -2,6 +2,7 @@ import { test, expect } from '../../src/fixtures';
 import { Messages } from '../../src/data/catalog';
 import { buildUser } from '../../src/data/factories';
 import { loginValidationCases } from '../../src/data/cases';
+import { randomPassword, resolvePlaceholders } from '../../src/data/random';
 
 test.describe('Login', { tag: '@login' }, () => {
   test.beforeEach(async ({ homePage }) => {
@@ -21,7 +22,7 @@ test.describe('Login', { tag: '@login' }, () => {
 
   test('[TC-LOGIN-002] wrong password is rejected', { tag: '@regression' }, async ({ homePage, testUser }) => {
     await homePage.nav.openLogin();
-    const alert = await homePage.loginModal.loginExpectingAlert(testUser.username, `${testUser.password}-wrong`);
+    const alert = await homePage.loginModal.loginExpectingAlert(testUser.username, randomPassword());
 
     expect(alert).toBe(Messages.login.wrongPassword);
     await homePage.nav.expectLoggedOut();
@@ -39,7 +40,10 @@ test.describe('Login', { tag: '@login' }, () => {
   for (const c of loginValidationCases()) {
     test(`[${c.id}] validation when ${c.title}`, { tag: '@regression' }, async ({ homePage }) => {
       await homePage.nav.openLogin();
-      const alert = await homePage.loginModal.loginExpectingAlert(c.username, c.password);
+      const alert = await homePage.loginModal.loginExpectingAlert(
+        resolvePlaceholders(c.username),
+        resolvePlaceholders(c.password),
+      );
 
       expect(alert).toBe(c.expectedAlert);
       await homePage.nav.expectLoggedOut();

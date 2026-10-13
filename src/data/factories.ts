@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { column, readCsv, type CsvRow } from './csv';
+import { randomPassword, randomUsername } from './random';
 
 export interface UserCredentials {
   username: string;
@@ -19,8 +20,8 @@ const shortId = () => randomUUID().replace(/-/g, '').slice(0, 10);
 
 export function buildUser(overrides: Partial<UserCredentials> = {}): UserCredentials {
   return {
-    username: `qa_auto_${shortId()}`,
-    password: `Pw!${shortId()}`,
+    username: randomUsername(),
+    password: randomPassword(),
     ...overrides,
   };
 }
