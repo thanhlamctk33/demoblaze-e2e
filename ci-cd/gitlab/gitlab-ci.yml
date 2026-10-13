@@ -44,7 +44,7 @@ e2e:
   artifacts:
     when: always
     name: 'e2e-$TARGET'
-    paths: [reports/, test-results/]
+    paths: [reports/]
     expire_in: 14 days
 
 k6-load:

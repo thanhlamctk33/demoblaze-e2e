@@ -138,6 +138,8 @@ After a run, `reports/` contains:
 - **HTML** (`npm run report`) — steps, screenshots, video and trace for failed tests
 - **Allure** (`npm run report:allure`)
 - **Summary** (`reports/summary.md`) — results per browser, failures grouped by cause, flaky tests
+- **Failed-test evidence** (`reports/test-results/`) — trace, screenshot and video of each failed test; open a trace with `npx playwright show-trace <trace.zip>`
+- **k6** (`reports/k6/`) — load and throughput summaries
 
 ## 8. CI/CD
 

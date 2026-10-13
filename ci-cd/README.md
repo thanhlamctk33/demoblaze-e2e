@@ -62,4 +62,4 @@ aws codepipeline start-pipeline-execution --name demoblaze-e2e-commit --variable
 
 ## Reports
 
-Every platform keeps `reports/` (HTML, JSON, Allure, `summary.md`, k6 summaries) and `test-results/` (traces, screenshots, videos of failed tests) as build artifacts.
+Every platform keeps `reports/` as the build artifact: HTML, JSON and Allure reports, `summary.md`, k6 summaries, and `reports/test-results/` with the traces, screenshots and videos of failed tests.

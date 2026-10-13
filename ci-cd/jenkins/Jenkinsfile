@@ -52,7 +52,7 @@ pipeline {
     always {
       sh 'node scripts/summarize-results.mjs || true'
       publishHTML(target: [reportDir: 'reports/html', reportFiles: 'index.html', reportName: 'Playwright Report', keepAll: true, alwaysLinkToLastBuild: true, allowMissing: true])
-      archiveArtifacts artifacts: 'reports/**, test-results/**', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
     }
   }
 }

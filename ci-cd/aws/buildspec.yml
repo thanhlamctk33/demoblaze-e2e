@@ -59,7 +59,6 @@ artifacts:
   name: e2e-$TARGET
   files:
     - reports/**/*
-    - test-results/**/*
 
 cache:
   paths:

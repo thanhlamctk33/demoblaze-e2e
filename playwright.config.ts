@@ -14,7 +14,7 @@ if (config.isCI) reporters.push(['blob', { outputDir: 'reports/blob' }]);
 
 export default defineConfig({
   testDir: './tests',
-  outputDir: 'test-results',
+  outputDir: 'reports/test-results',
   fullyParallel: true,
   forbidOnly: config.isCI,
   retries: config.isCI ? 2 : 0,

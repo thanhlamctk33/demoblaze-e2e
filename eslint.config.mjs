@@ -2,7 +2,7 @@ import tseslint from 'typescript-eslint';
 import playwright from 'eslint-plugin-playwright';
 
 export default tseslint.config(
-  { ignores: ['node_modules/', 'reports/', 'test-results/', 'playwright-report/', 'blob-report/'] },
+  { ignores: ['node_modules/', 'reports/', 'playwright-report/', 'blob-report/'] },
   ...tseslint.configs.recommended,
   {
     files: ['tests/**/*.ts'],

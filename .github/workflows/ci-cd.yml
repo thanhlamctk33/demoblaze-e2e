@@ -115,7 +115,7 @@ jobs:
         if: failure()
         with:
           name: traces-${{ matrix.project }}
-          path: test-results
+          path: reports/test-results
           retention-days: 7
 
   perf:
