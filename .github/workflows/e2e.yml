@@ -16,6 +16,12 @@ on:
         description: 'Target environment (src/config/environments.ts)'
         required: false
         default: 'prod'
+      k6_scenario:
+        description: 'k6 checkout profile for the load job'
+        required: false
+        default: 'smoke'
+        type: choice
+        options: [smoke, load, spike]
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -132,6 +138,26 @@ jobs:
           name: blob-report-perf
           path: reports/blob
           retention-days: 7
+
+  load:
+    name: k6 checkout load (${{ inputs.k6_scenario || 'smoke' }})
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: grafana/setup-k6-action@v1
+      - name: Run checkout flow
+        run: |
+          mkdir -p reports/k6
+          k6 run -e SCENARIO=${{ inputs.k6_scenario || 'smoke' }} \
+            --summary-export=reports/k6/checkout-summary.json perf/k6/checkout-flow.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-summary
+          path: reports/k6
+          retention-days: 14
 
   report:
     name: Merged report

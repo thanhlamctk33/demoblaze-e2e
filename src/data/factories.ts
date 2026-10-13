@@ -16,10 +16,6 @@ export interface OrderDetails {
 
 const shortId = () => randomUUID().replace(/-/g, '').slice(0, 10);
 
-/**
- * Unique, collision-free usernames. DemoBlaze is a shared public sandbox, so
- * every run must create its own data instead of relying on fixed accounts.
- */
 export function buildUser(overrides: Partial<UserCredentials> = {}): UserCredentials {
   return {
     username: `qa_auto_${shortId()}`,
@@ -33,7 +29,7 @@ export function buildOrder(overrides: Partial<OrderDetails> = {}): OrderDetails 
     name: `QA Buyer ${shortId()}`,
     country: 'Vietnam',
     city: 'Ho Chi Minh City',
-    card: '4111111111111111', // well-known test card number
+    card: '4111111111111111',
     month: '12',
     year: '2030',
     ...overrides,

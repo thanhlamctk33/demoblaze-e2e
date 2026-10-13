@@ -1,13 +1,6 @@
 import { test, expect } from '../../src/fixtures';
 import { config } from '../../src/config';
 
-/**
- * Lightweight performance checks (browser-side Web Performance APIs + API latency).
- * Budgets come from config/env (PERF_*), so each environment can set its own.
- * For load/stress testing see perf/k6/ (k6 script, run separately).
- *
- * Results are attached to the report as JSON so trends can be tracked over time.
- */
 test.describe('Performance budgets', { tag: '@perf' }, () => {
   test('[TC-PERF-001] home page loads and renders products within budget', async ({ page, homePage }, testInfo) => {
     const start = Date.now();

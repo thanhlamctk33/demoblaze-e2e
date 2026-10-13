@@ -36,7 +36,6 @@ export class PlaceOrderModal {
     await expect(this.name).toBeEditable();
   }
 
-  /** "Total: 1150" -> 1150, or null when the cart was empty. */
   async getDisplayedTotal(): Promise<number | null> {
     const text = (await this.totalLabel.innerText()).trim();
     return /\d/.test(text) ? parsePrice(text) : null;
@@ -58,7 +57,6 @@ export class PlaceOrderModal {
     });
   }
 
-  /** Valid submission: the SweetAlert confirmation appears. */
   async purchase(details: OrderDetails): Promise<OrderConfirmation> {
     return test.step('Submit order', async () => {
       await this.fill(details);
@@ -68,18 +66,11 @@ export class PlaceOrderModal {
     });
   }
 
-  /** Invalid submission: returns the native validation alert text. */
   async purchaseExpectingAlert(details: Partial<OrderDetails>): Promise<string> {
     await this.fill(details);
     return captureAlert(this.page, () => this.purchaseButton.click());
   }
 
-  /**
-   * Submits and reports whether an order confirmation appeared, accepting any
-   * alert in the meantime. Used by tests that assert an order is *rejected*:
-   * it waits a bounded time for a (wrong) confirmation instead of passing
-   * instantly just because nothing has rendered yet.
-   */
   async submitAndCheckConfirmed(details: Partial<OrderDetails>, waitMs = 5_000): Promise<boolean> {
     await this.fill(details);
     const acceptAny = (d: import('@playwright/test').Dialog) => void d.accept().catch(() => undefined);

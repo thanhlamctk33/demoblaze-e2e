@@ -1,28 +1,14 @@
 #!/usr/bin/env node
-/**
- * Turns Playwright's JSON report into a short Markdown run summary:
- *   - pass / fail / flaky / skipped counts per project
- *   - failures grouped by error signature (one root cause -> one group)
- *   - flaky tests (passed only after a retry) — the input for flaky-test reduction
- *   - optional AI triage: if ANTHROPIC_API_KEY is set, failures are sent to an
- *     LLM that classifies each group as product bug / test bug / environment
- *     and suggests a next step. Without a key the script is fully offline.
- *
- * Output goes to stdout, reports/summary.md and (in GitHub Actions) the job summary.
- *
- * Usage: node scripts/summarize-results.mjs [path/to/results.json]
- */
 import fs from 'node:fs';
 import path from 'node:path';
 
 const reportPath = process.argv[2] ?? 'reports/json/results.json';
 if (!fs.existsSync(reportPath)) {
   console.error(`No JSON report at ${reportPath} — run the tests first.`);
-  process.exit(0); // never fail the pipeline because of the summary step
+  process.exit(0);
 }
 const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
 
-/** Flatten nested suites into { title, file, project, status, results } rows. */
 function collect(suite, parents = [], out = []) {
   for (const spec of suite.specs ?? []) {
     for (const t of spec.tests ?? []) {
@@ -31,7 +17,7 @@ function collect(suite, parents = [], out = []) {
         file: spec.file,
         line: spec.line,
         project: t.projectName,
-        status: t.status, // expected | unexpected | flaky | skipped
+        status: t.status,
         results: t.results ?? [],
       });
     }
@@ -42,7 +28,6 @@ function collect(suite, parents = [], out = []) {
 const tests = (report.suites ?? []).flatMap((s) => collect(s, []));
 
 const stripAnsi = (s = '') => s.replace(/\u001b\[[0-9;]*m/g, '');
-/** Normalise an error into a stable signature: first line, without volatile numbers/ids. */
 const signature = (msg) =>
   stripAnsi(msg)
     .split('\n')
@@ -92,7 +77,6 @@ if (flaky.length) {
 
 if (!groups.size && !flaky.length) md += `\nAll tests behaved as expected. 🎉\n`;
 
-// ------------------------------------------------------------ AI triage ---
 async function aiTriage() {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key || !groups.size) return '';

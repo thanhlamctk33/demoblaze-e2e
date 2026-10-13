@@ -2,12 +2,12 @@
 
 Playwright + TypeScript framework for [DemoBlaze](https://www.demoblaze.com) covering **UI, API, regression and performance** testing of the **Login** and **Cart / Place Order** features, with cross-browser + mobile execution, CI/CD and rich reporting.
 
-| Deliverable                                                      | Location                                                                                                               |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Test case suite (Excel)                                          | [`test-cases/DemoBlaze_TestCases.xlsx`](test-cases/DemoBlaze_TestCases.xlsx) — 76 cases, summary dashboard, defect log |
-| Framework + demo scripts                                         | this repository                                                                                                        |
-| Demo: _login with valid credentials → add to cart → place order_ | [`tests/ui/checkout.spec.ts`](tests/ui/checkout.spec.ts) → `[TC-ORDER-001]`                                            |
-| CI/CD                                                            | [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml), [`Jenkinsfile`](Jenkinsfile)                                 |
+| Deliverable                                                      | Location                                                                                                                                                                         |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Test case suite (Excel)                                          | [`test-cases/DemoBlaze_TestCases.xlsx`](test-cases/DemoBlaze_TestCases.xlsx) — 94 cases, summary dashboard, defect log, plus a 62-case **Test Strategy – Payment Gateway** sheet |
+| Framework + demo scripts                                         | this repository                                                                                                                                                                  |
+| Demo: _login with valid credentials → add to cart → place order_ | [`tests/ui/checkout.spec.ts`](tests/ui/checkout.spec.ts) → `[TC-ORDER-001]`                                                                                                      |
+| CI/CD                                                            | [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml), [`Jenkinsfile`](Jenkinsfile)                                                                                           |
 
 ---
 
@@ -38,10 +38,13 @@ No account setup is needed: the framework **signs up a fresh, unique user per wo
 | `npm run test:cross-browser`                            | full UI suite on Chromium, Firefox, WebKit                               |
 | `npm run test:mobile`                                   | smoke on Pixel 7 + iPhone 14 emulation                                   |
 | `npm run test:api` / `npm run test:perf`                | API tests / performance budgets                                          |
+| `npm run test:concurrency`                              | concurrency, idempotency and double-submit tests (API + Chromium)        |
+| `npm run test:contract`                                 | JSON Schema contract tests for `/login`, `/addtocart`, `/viewcart`       |
 | `npm run test:headed` / `npm run test:ui-mode`          | watch the browser / Playwright UI mode for debugging                     |
 | `npm run report` / `npm run report:allure`              | Playwright HTML report / Allure report                                   |
 | `npm run summary`                                       | Markdown run summary (+ flaky list, optional AI triage)                  |
 | `npm run perf:load`                                     | k6 load test of the catalogue API (needs [k6](https://k6.io))            |
+| `npm run perf:smoke` · `perf:checkout` · `perf:spike`   | k6 checkout flow (login → cart → order) — smoke / load / spike profiles  |
 | `npm run lint` · `npm run typecheck` · `npm run format` | code quality                                                             |
 
 Any Playwright CLI filter works too, e.g. `npx playwright test --grep "TC-CART-00[1-5]" --project=firefox`, or exclude known defects with `--grep-invert @known-bug`.
@@ -54,19 +57,19 @@ Any Playwright CLI filter works too, e.g. `npx playwright test --grep "TC-CART-0
 .
 ├── src/
 │   ├── config/            # environments + typed runtime config (env vars > catalogue > defaults)
-│   ├── api/               # DemoblazeApi — typed client for api.demoblaze.com
+│   ├── api/               # DemoblazeApi client, JSON schemas (schemas.ts) + ajv validator (contract.ts)
 │   ├── pages/             # Page Object Model
 │   │   ├── BasePage.ts        # shared navbar + auth modals, open()/waitUntilReady() contract
 │   │   ├── HomePage.ts  ProductPage.ts  CartPage.ts
 │   │   └── components/        # NavBar, LoginModal, SignUpModal, PlaceOrderModal, OrderConfirmation
 │   ├── fixtures/          # custom Playwright fixtures (pages, api, testUser, authenticatedPage)
 │   ├── data/              # test-data factories + product catalogue + expected messages
-│   └── utils/             # alert handling, price parsing, encoding
+│   └── utils/             # alert handling, price parsing, encoding, request tracking
 ├── tests/
-│   ├── ui/                # login.spec.ts, cart.spec.ts, checkout.spec.ts
-│   ├── api/               # auth + catalog/cart API tests
+│   ├── ui/                # login, cart, checkout, concurrency (double submit, multi-tab)
+│   ├── api/               # auth, catalog/cart, contract, concurrency & idempotency
 │   └── perf/              # page-load & API latency budgets
-├── perf/k6/               # load test (k6)
+├── perf/k6/               # k6: catalogue load + checkout flow (smoke / load / spike)
 ├── scripts/               # summarize-results.mjs (run summary, flaky report, AI triage)
 ├── test-cases/            # Excel test case suite
 ├── .github/workflows/     # GitHub Actions pipeline
@@ -92,7 +95,7 @@ Any Playwright CLI filter works too, e.g. `npx playwright test --grep "TC-CART-0
 - No `waitForTimeout` anywhere (enforced by lint): all waits are web-first assertions, `expect.poll` or `toPass`.
 
 **5. Tags + projects instead of separate suites.** One codebase, filtered at run time:
-`@smoke`, `@regression`, `@e2e`, `@api`, `@perf`, `@security`, `@hybrid`, `@known-bug`, plus feature tags `@login`, `@cart`, `@checkout`. Projects add the platform dimension (Chromium, Firefox, WebKit, Pixel 7, iPhone 14). The navbar component expands the mobile hamburger menu automatically, so the same page objects run on desktop and mobile.
+`@smoke`, `@regression`, `@e2e`, `@api`, `@perf`, `@security`, `@hybrid`, `@known-bug`, `@concurrency`, `@idempotency`, `@contract`, plus feature tags `@login`, `@cart`, `@checkout`. Projects add the platform dimension (Chromium, Firefox, WebKit, Pixel 7, iPhone 14). The navbar component expands the mobile hamburger menu automatically, so the same page objects run on desktop and mobile.
 
 **6. Known defects are executable.** Defects found while designing the suite (see the _Defects & Observations_ sheet) are automated as `test.fail()` tests tagged `@known-bug`: they pass while the bug exists and turn red when it is fixed — prompting the team to promote them to normal regression tests instead of forgetting them.
 
@@ -108,6 +111,8 @@ Any Playwright CLI filter works too, e.g. `npx playwright test --grep "TC-CART-0
 | API              | `tests/api`, Playwright `request` + `DemoblazeApi`, contract checks                                                      |
 | Regression       | `@regression` tag across browsers; nightly CI schedule                                                                   |
 | Performance      | `tests/perf`: Navigation Timing + API latency budgets (configurable, metrics attached to the report); `perf/k6` for load |
+| Concurrency      | `@concurrency` / `@idempotency`: parallel writes, request replay, double submit, multi-tab (`tests/*/concurrency*`)      |
+| Contract         | `@contract`: ajv JSON Schema validation of response bodies, content types and error shapes (`tests/api/contract`)        |
 | Security (basic) | injection-style input, password masking, card masking (`@security`, `@known-bug`)                                        |
 
 ---
@@ -138,16 +143,92 @@ Traces (`trace: retain-on-failure`) can be opened with `npx playwright show-trac
 quality (lint, typecheck, prettier)
    ├── api tests
    ├── ui matrix: chromium · firefox · webkit · mobile-chrome · mobile-safari  (parallel, fail-fast off)
-   └── perf budgets
+   ├── perf budgets
+   └── k6 checkout load  (nightly + manual only; profile: smoke | load | spike)
         └── report: merges all blob reports → single HTML + JSON, job summary, artifact
               └── (optional) publish HTML report to GitHub Pages
 ```
 
 - Browsers are cached per engine; `retries: 2` and `workers: 2` in CI.
 - Optional secrets: `TEST_USERNAME`, `TEST_PASSWORD`, `ANTHROPIC_API_KEY`.
+- The `load` job runs `perf/k6/checkout-flow.js` nightly (smoke) or on demand with the `k6_scenario` input, and uploads the k6 summary as an artifact.
 - To publish the report to GitHub Pages: enable Pages (source: _GitHub Actions_) and set the repository variable `PUBLISH_REPORT=true`.
 
 **Jenkins** (`Jenkinsfile`) runs in the official Playwright Docker image with `PROJECT`, `GREP` and `TEST_ENV` parameters, publishes JUnit + HTML reports and archives artifacts. GitLab CI would follow the same pattern (`image: mcr.microsoft.com/playwright`, `npx playwright test`, `artifacts: reports/`).
+
+---
+
+## Applying the framework to a high-traffic payment system
+
+DemoBlaze has no real payments, cache or queue, but the suite already tests the failure modes that matter most for a payment gateway: **money must never be lost, duplicated or wrong under load**. The _Test Strategy – Payment Gateway_ sheet lists 62 scenarios for idempotency, concurrency, Redis, message queues, the database, AWS, partner APIs, security and performance, each linked to the DemoBlaze test that proves the technique where one exists.
+
+| Risk on a payment gateway             | Proven here on DemoBlaze                                                      | Extension for the real system                                           |
+| ------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Double charge on retry / double click | TC-CONC-002 (replay → 1 line), TC-CONC-007/008 (double submit, BUG-08/09)     | Idempotency-Key replay at 50x parallel, conflicting payload → 409       |
+| Race conditions / lost writes         | TC-CONC-001 (10 parallel writes, none lost), TC-CONC-006 (two tabs)           | Concurrent debits on one wallet, capture vs refund, optimistic locking  |
+| Contract drift with partners          | TC-CTR-001…007 (ajv schemas, error shape, HTTP status — BUG-10/11)            | Pact consumer-driven contracts, event schemas in a schema registry      |
+| Latency / errors at peak              | `perf/k6/checkout-flow.js` smoke / load / spike with p95, p99 and error gates | TPS-based scenarios, soak and stress, distributed k6 in the pipeline    |
+| Data exposure                         | TC-ORDER-014 (card number not masked), TC-LOGIN-011 (injection)               | PAN scans of DB / logs, IDOR, amount tampering, webhook signatures, ZAP |
+
+### Latest k6 spike run (13 Oct 2026, 1 → 20 VUs)
+
+| Metric                                        | Result                   | Threshold     |
+| --------------------------------------------- | ------------------------ | ------------- |
+| Orders placed                                 | 301                      | —             |
+| `http_req_duration` p95 / p99                 | 557 ms / 999 ms          | < 2 s / < 4 s |
+| Per step p95 (login, add, view, order)        | 570 / 690 / 524 / 475 ms | < 1.5 s       |
+| `http_req_failed`                             | 0.06 % (1 / 1525)        | < 1 %         |
+| `business_errors` (HTTP 200 + `errorMessage`) | 0 %                      | < 1 %         |
+| Checks                                        | 99.90 %                  | > 99 %        |
+
+`business_errors` exists because the DemoBlaze API (like many legacy partner APIs) reports failures as HTTP 200, so `http_req_failed` alone would hide them.
+
+### How the framework would be extended
+
+**1. Hermetic integration tests with Testcontainers (Redis, Postgres, Kafka).** A worker-scoped fixture starts real dependencies in Docker, so tests for locks, cache invalidation, transactions, outbox and at-least-once delivery run identically on a laptop and in CI:
+
+```ts
+import { RedisContainer } from '@testcontainers/redis';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { KafkaContainer } from '@testcontainers/kafka';
+
+export const test = base.extend<{}, { infra: Infra }>({
+  infra: [
+    async ({}, use) => {
+      const [redis, db, kafka] = await Promise.all([
+        new RedisContainer('redis:7').start(),
+        new PostgreSqlContainer('postgres:16').start(),
+        new KafkaContainer('confluentinc/cp-kafka:7.6.0').start(),
+      ]);
+      await use({ redisUrl: redis.getConnectionUrl(), dbUrl: db.getConnectionUri(), kafka });
+      await Promise.all([redis.stop(), db.stop(), kafka.stop()]);
+    },
+    { scope: 'worker' },
+  ],
+});
+```
+
+Chaos cases (Redis down, consumer killed mid-message, broker unavailable during publish) become `container.stop()` / Toxiproxy latency inside a test.
+
+**2. Partner simulation with WireMock.** Acquirer, bank and 3-D Secure endpoints are stubbed per test: success, decline, 503, 429 + `Retry-After`, 35 s delay, duplicate or out-of-order webhooks. This makes retry, backoff, circuit-breaker and "acquirer timed out after debiting" scenarios deterministic, which a partner sandbox never is.
+
+**3. AWS with LocalStack.** SQS (visibility timeout, DLQ redrive), SNS, S3 settlement files, Secrets Manager and KMS run locally; the same tests point at a real staging account by switching `AWS_ENDPOINT_URL` in `src/config`. Infrastructure-level checks (Auto Scaling, Multi-AZ failover) run in staging with k6 plus AWS Fault Injection Service.
+
+**4. Contracts.** The ajv schemas in `src/api/schemas.ts` grow into Pact consumer-driven contracts with each partner and schema-registry compatibility checks for events, so a breaking change fails CI before deployment.
+
+**5. k6 in the pipeline.** Thresholds are already quality gates (k6 exits non-zero on breach). The rollout is: smoke profile on every PR, load profile nightly, spike / soak / stress before each release, with metrics streamed to Prometheus/Grafana for trend comparison and distributed runs via the k6 operator for real TPS targets.
+
+**6. Security in CI.** OWASP ZAP baseline scan, secret scanning, and automated checks that no PAN or CVV appears in DB rows, logs or API responses — the same idea as TC-ORDER-014, applied to every surface.
+
+Proposed additions to the layout:
+
+```
+src/infra/           # Testcontainers + LocalStack fixtures, Toxiproxy helpers
+src/mocks/           # WireMock stub mappings per partner
+tests/integration/   # redis/, mq/, db/, aws/ — hermetic tests on real dependencies
+tests/contract/      # Pact consumer tests + event schema checks
+perf/k6/scenarios/   # TPS-based payment, refund, webhook and soak profiles
+```
 
 ---
 

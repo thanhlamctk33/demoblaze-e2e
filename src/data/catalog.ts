@@ -1,8 +1,3 @@
-/**
- * Products used by the tests, referenced by visible name + API id.
- * Prices are intentionally NOT hard-coded: tests read them from the product
- * page / API at run time so a catalogue price change does not break the suite.
- */
 export const Products = {
   samsungGalaxyS6: { id: 1, name: 'Samsung galaxy s6', category: 'phone' },
   nokiaLumia1520: { id: 2, name: 'Nokia lumia 1520', category: 'phone' },
@@ -13,7 +8,6 @@ export const Products = {
 
 export type Product = (typeof Products)[keyof typeof Products];
 
-/** UI category link label -> API category key */
 export const Categories = {
   Phones: 'phone',
   Laptops: 'notebook',
@@ -31,8 +25,10 @@ export const Messages = {
     userExists: 'This user already exist.',
   },
   cart: {
-    // Logged-in users get "Product added." and guests "Product added" (no period).
     productAdded: /^Product added\.?$/,
+  },
+  api: {
+    tokenMalformed: 'Bad parameter, token malformed.',
   },
   order: {
     missingFields: 'Please fill out Name and Creditcard.',

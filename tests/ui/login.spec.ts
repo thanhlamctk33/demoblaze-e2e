@@ -2,10 +2,6 @@ import { test, expect } from '../../src/fixtures';
 import { Messages } from '../../src/data/catalog';
 import { buildUser } from '../../src/data/factories';
 
-/**
- * Login feature — UI.
- * Test IDs map 1:1 to the "Login" sheet of test-cases/DemoBlaze_TestCases.xlsx.
- */
 test.describe('Login', { tag: '@login' }, () => {
   test.beforeEach(async ({ homePage }) => {
     await homePage.open();
@@ -39,7 +35,6 @@ test.describe('Login', { tag: '@login' }, () => {
     await homePage.nav.expectLoggedOut();
   });
 
-  // Data-driven: every combination of missing mandatory fields.
   const missingFieldCases = [
     { id: 'TC-LOGIN-004', title: 'both fields empty', username: '', password: '' },
     { id: 'TC-LOGIN-005', title: 'username empty', username: '', password: 'anyPassword1' },
@@ -97,7 +92,6 @@ test.describe('Login', { tag: '@login' }, () => {
     { tag: ['@regression', '@security'] },
     async ({ homePage }) => {
       await homePage.nav.openLogin();
-      // Unique suffix: on the shared public site someone has registered the bare payload as a username.
       const payload = `' OR '1'='1' -- ${buildUser().username}`;
       const alert = await homePage.loginModal.loginExpectingAlert(payload, `' OR '1'='1`);
 

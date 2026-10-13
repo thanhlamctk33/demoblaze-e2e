@@ -14,7 +14,6 @@ export class SignUpModal {
     this.submitButton = this.root.getByRole('button', { name: 'Sign up' });
   }
 
-  /** Every sign-up outcome (success or failure) is reported via an alert. */
   async signUp(username: string, password: string): Promise<string> {
     await expect(this.root).toBeVisible();
     await this.usernameInput.fill(username);

@@ -1,13 +1,3 @@
-/**
- * k6 load test for the DemoBlaze catalogue API.
- * Playwright covers single-user performance budgets (tests/perf); k6 covers
- * behaviour under concurrent load, which a browser runner is not built for.
- *
- * Run:  k6 run perf/k6/catalog-load.js
- *       k6 run -e API_URL=https://api.demoblaze.com -e VUS=20 perf/k6/catalog-load.js
- *
- * Keep the load modest: DemoBlaze is a shared public demo site.
- */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
@@ -20,8 +10,8 @@ export const options = {
     { duration: '10s', target: 0 },
   ],
   thresholds: {
-    http_req_failed: ['rate<0.01'], // < 1% errors
-    http_req_duration: ['p(95)<2000'], // 95% of requests under 2s
+    http_req_failed: ['rate<0.01'],
+    http_req_duration: ['p(95)<2000'],
   },
 };
 

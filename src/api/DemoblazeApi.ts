@@ -13,7 +13,7 @@ export interface ProductEntry {
 }
 
 export interface CartEntry {
-  id: string; // cart line id (uuid)
+  id: string;
   prod_id: number;
   cookie: string;
 }
@@ -22,14 +22,6 @@ export type AuthResult =
   | { ok: true; token: string; status: number; durationMs: number }
   | { ok: false; error: string; status: number; durationMs: number };
 
-/**
- * Thin typed client for the DemoBlaze backend (https://api.demoblaze.com).
- *
- * Used for:
- *  - API tests (tests/api)
- *  - fast, UI-independent test setup/teardown (creating users, seeding or
- *    clearing carts) so UI tests only exercise the behaviour under test.
- */
 export class DemoblazeApi {
   constructor(
     private readonly request: APIRequestContext,
@@ -46,15 +38,12 @@ export class DemoblazeApi {
     return { result, durationMs: Math.round(performance.now() - start) };
   }
 
-  /** The backend answers errors as `{ "errorMessage": "..." }` with HTTP 200. */
   private static errorOf(body: unknown): string | undefined {
     if (body && typeof body === 'object' && 'errorMessage' in body) {
       return String((body as { errorMessage: unknown }).errorMessage);
     }
     return undefined;
   }
-
-  // ---------------------------------------------------------------- auth ---
 
   async signup(username: string, password: string): Promise<{ ok: boolean; error?: string; status: number }> {
     const res = await this.request.post(this.url('/signup'), {
@@ -84,14 +73,11 @@ export class DemoblazeApi {
     };
   }
 
-  /** Logs in and returns the auth token, throwing on failure — handy for one-line setup. */
   async loginOrFail(username: string, password: string): Promise<string> {
     const result = await this.login(username, password);
     if (!result.ok) throw new Error(`API login failed for "${username}": ${result.error}`);
     return result.token;
   }
-
-  // ------------------------------------------------------------- catalog ---
 
   async entries(): Promise<{ response: APIResponse; items: ProductEntry[]; durationMs: number }> {
     const { result: response, durationMs } = await this.timed(() => this.request.get(this.url('/entries')));
@@ -110,12 +96,14 @@ export class DemoblazeApi {
     return body.Items ?? [];
   }
 
-  // ---------------------------------------------------------------- cart ---
-
-  async addToCart(token: string, productId: number): Promise<APIResponse> {
+  async addToCart(token: string, productId: number, lineId: string = randomUUID()): Promise<APIResponse> {
     return this.request.post(this.url('/addtocart'), {
-      data: { id: randomUUID(), cookie: token, prod_id: productId, flag: true },
+      data: { id: lineId, cookie: token, prod_id: productId, flag: true },
     });
+  }
+
+  async placeOrder(username: string): Promise<APIResponse> {
+    return this.request.post(this.url('/deletecart'), { data: { cookie: username } });
   }
 
   async viewCart(token: string): Promise<CartEntry[]> {
@@ -128,7 +116,6 @@ export class DemoblazeApi {
     return this.request.post(this.url('/deleteitem'), { data: { id: cartLineId } });
   }
 
-  /** Empties a user's cart line-by-line (deterministic, no reliance on /deletecart semantics). */
   async clearCart(token: string): Promise<void> {
     const items = await this.viewCart(token);
     for (const item of items) {

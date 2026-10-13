@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv';
 import path from 'node:path';
 import { environments, type EnvironmentConfig, type EnvironmentName } from './environments';
 
-// Load .env (never committed) so every value below can be overridden locally or in CI.
 dotenv.config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
 
 const num = (value: string | undefined, fallback: number): number => {
@@ -16,10 +15,6 @@ if (!selected) {
   throw new Error(`Unknown TEST_ENV "${envName}". Known environments: ${Object.keys(environments).join(', ')}`);
 }
 
-/**
- * Single source of truth for runtime configuration.
- * Precedence: explicit env var  >  environment catalogue  >  default.
- */
 export const config = {
   env: envName,
   baseURL: process.env.BASE_URL ?? selected.baseURL,
@@ -27,10 +22,6 @@ export const config = {
   isCI: !!process.env.CI,
   headless: process.env.HEADLESS !== 'false',
 
-  /**
-   * Optional pre-existing account. When not provided, the framework signs up
-   * a fresh, unique user per worker through the API (see fixtures).
-   */
   credentials: {
     username: process.env.TEST_USERNAME,
     password: process.env.TEST_PASSWORD,
@@ -44,7 +35,6 @@ export const config = {
     dialog: num(process.env.DIALOG_TIMEOUT, 10_000),
   },
 
-  /** Performance budgets in milliseconds (tests/perf). Tune per environment. */
   perfBudgets: {
     pageLoad: num(process.env.PERF_PAGE_LOAD_MS, 5_000),
     productsRendered: num(process.env.PERF_PRODUCTS_RENDERED_MS, 6_000),

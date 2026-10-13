@@ -6,11 +6,9 @@ export interface ReceiptDetails {
   amount: number;
   cardNumber: string;
   name: string;
-  /** Raw "d/m/yyyy" string as rendered by the site */
   date: string;
 }
 
-/** The SweetAlert receipt shown after a successful purchase. */
 export class OrderConfirmation {
   readonly root: Locator;
   readonly title: Locator;
@@ -29,19 +27,9 @@ export class OrderConfirmation {
     await expect(this.title).toHaveText(Messages.order.success);
   }
 
-  /**
-   * Body text looks like:
-   *   Id: 4785632
-   *   Amount: 1150 USD
-   *   Card Number: 4111111111111111
-   *   Name: QA Buyer
-   *   Date: 13/9/2026
-   */
   async getReceipt(): Promise<ReceiptDetails> {
     const text = await this.body.innerText();
     const field = (label: string): string => {
-      // Anchor to a whole line and never cross a line break: an empty value
-      // (e.g. "Name:" when the name was whitespace) must read as "", not the next line.
       const match = text.match(new RegExp(`^${label}:[ \\t]*(.*)$`, 'm'));
       if (!match) throw new Error(`Receipt is missing "${label}". Full text:\n${text}`);
       return match[1].trim();
@@ -55,10 +43,7 @@ export class OrderConfirmation {
     };
   }
 
-  /** Clicking OK sends the user back to the home page. */
   async confirm(): Promise<void> {
-    // SweetAlert adds `visible` once its open animation ends. A click before that
-    // hides the dialog without running the callback, so the redirect never fires.
     await expect(this.root).toHaveClass(/\bvisible\b/);
     await this.okButton.click();
     await this.page.waitForURL(/index\.html|\/$/);

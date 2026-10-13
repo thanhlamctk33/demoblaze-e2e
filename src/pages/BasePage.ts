@@ -3,10 +3,6 @@ import { NavBar } from './components/NavBar';
 import { LoginModal } from './components/LoginModal';
 import { SignUpModal } from './components/SignUpModal';
 
-/**
- * Shared behaviour for every page: the site-wide navbar and its auth modals
- * are available on all pages, so they are composed here once.
- */
 export abstract class BasePage {
   readonly nav: NavBar;
   readonly loginModal: LoginModal;
@@ -27,10 +23,8 @@ export abstract class BasePage {
     });
   }
 
-  /** Each page defines what "ready to interact" means (data loaded, etc.). */
   abstract waitUntilReady(): Promise<void>;
 
-  /** Log in through the UI from any page. */
   async login(username: string, password: string): Promise<void> {
     await test.step(`Log in as "${username}" via UI`, async () => {
       await this.nav.openLogin();

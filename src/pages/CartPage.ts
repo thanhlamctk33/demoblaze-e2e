@@ -24,15 +24,12 @@ export class CartPage extends BasePage {
     this.orderModal = new PlaceOrderModal(page);
   }
 
-  /** Number of lines the backend returned on the last cart load (source of truth for "empty"). */
   private serverLineCount: Promise<number> | undefined;
 
-  /** Starts listening for the next POST /viewcart response and records its line count. */
   private trackCartLoad(): void {
     this.serverLineCount = this.page
       .waitForResponse((r) => r.url().endsWith('/viewcart') && r.request().method() === 'POST')
       .then(async (r) => ((await r.json()) as { Items?: unknown[] }).Items?.length ?? 0);
-    // Avoid an unhandled rejection if the page closes before anyone awaits it.
     this.serverLineCount.catch(() => undefined);
   }
 
@@ -46,12 +43,6 @@ export class CartPage extends BasePage {
     if (this.serverLineCount) await this.serverLineCount;
   }
 
-  /**
-   * The cart renders asynchronously: one /viewcart call, then one /view call
-   * per line, with the total growing as each response arrives. We assert both
-   * the backend's line count (so "0 rows" is not a false positive before the
-   * data arrives) and the rendered rows (with auto-retry).
-   */
   async expectLineCount(count: number): Promise<void> {
     if (this.serverLineCount) {
       expect(await this.serverLineCount, `backend cart should contain ${count} line(s)`).toBe(count);
@@ -76,7 +67,6 @@ export class CartPage extends BasePage {
     return text === '' ? null : parsePrice(text);
   }
 
-  /** Waits until the displayed total equals the sum of the displayed line prices. */
   async expectTotalMatchesLines(): Promise<number> {
     const expected = sum((await this.getLines()).map((l) => l.price));
     await expect
@@ -89,10 +79,9 @@ export class CartPage extends BasePage {
     return this.rows.filter({ has: this.page.locator('td', { hasText: title }) });
   }
 
-  /** Deletes the first line with the given title; the page reloads afterwards. */
   async deleteLine(title: string, expectedRemaining: number): Promise<void> {
     await test.step(`Delete "${title}" from cart`, async () => {
-      this.trackCartLoad(); // the site reloads the page after a delete
+      this.trackCartLoad();
       await this.lineByTitle(title).first().getByRole('link', { name: 'Delete' }).click();
       await this.expectLineCount(expectedRemaining);
     });

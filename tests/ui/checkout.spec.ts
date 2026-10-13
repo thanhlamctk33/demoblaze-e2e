@@ -3,11 +3,6 @@ import { Messages, Products } from '../../src/data/catalog';
 import { buildOrder } from '../../src/data/factories';
 import { CartPage, ProductPage } from '../../src/pages';
 
-/**
- * Place Order (checkout) — UI.
- * TC-ORDER-001 is the requested demo: log in with valid credentials,
- * add to cart, then place an order — validated end to end.
- */
 test.describe('Checkout', { tag: '@checkout' }, () => {
   test(
     '[TC-ORDER-001] logged-in user adds a product to the cart and places an order',
@@ -55,7 +50,6 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
         expect(receipt.id).toMatch(/^\d+$/);
         expect(receipt.amount).toBe(price);
         expect(receipt.name).toBe(order.name);
-        // Last 4 digits must match (passes whether or not the number is masked — see TC-ORDER-014).
         expect(receipt.cardNumber.endsWith(order.card.slice(-4))).toBe(true);
         const [day, , year] = receipt.date.split('/').map(Number);
         expect({ day, year }).toEqual(today);
@@ -64,7 +58,6 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
       await test.step('Confirm and verify the cart was emptied', async () => {
         await cartPage.orderModal.confirmation.confirm();
         await homePage.waitUntilReady();
-        // The cart is cleared by an async request fired on purchase: re-check until it settles.
         await expect(async () => {
           await cartPage.open();
           await cartPage.expectLineCount(0);
@@ -112,7 +105,6 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
     },
   );
 
-  // Data-driven negative paths for the mandatory-field validation.
   const invalidOrders = [
     { id: 'TC-ORDER-004', title: 'name is empty', overrides: { name: '' } },
     { id: 'TC-ORDER-005', title: 'credit card is empty', overrides: { card: '' } },
@@ -137,7 +129,7 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
 
         expect(confirmed, 'no order confirmation should be shown').toBe(false);
         await cart.open();
-        await cart.expectLineCount(1); // nothing was purchased, cart untouched
+        await cart.expectLineCount(1);
       },
     );
   }
@@ -190,11 +182,6 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // Known defects. Marked with test.fail(): they PASS while the bug exists and
-  // turn red ("expected to fail but passed") the day it is fixed, so the team
-  // is prompted to promote them to regular regression tests.
-  // ---------------------------------------------------------------------------
   test.describe('Known defects', { tag: '@known-bug' }, () => {
     test('[TC-ORDER-011] receipt date shows the current month', async ({ authenticatedPage, api, testUser }) => {
       test.fail(true, 'BUG-01: receipt month is zero-based (JS getMonth()) — October renders as 9');

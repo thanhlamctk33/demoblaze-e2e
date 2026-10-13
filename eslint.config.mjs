@@ -9,7 +9,6 @@ export default tseslint.config(
     ...playwright.configs['flat/recommended'],
     rules: {
       ...playwright.configs['flat/recommended'].rules,
-      // Assertions live in page objects / helpers as well as in specs.
       'playwright/expect-expect': [
         'warn',
         { assertFunctionPatterns: ['^expect', '\\.expect[A-Z]', '\\.login(Successfully)?$'] },

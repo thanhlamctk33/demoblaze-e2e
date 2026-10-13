@@ -1,10 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/**
- * Site-wide top navigation. On narrow (mobile) viewports Bootstrap collapses
- * the links behind a hamburger toggle, which `ensureExpanded()` handles so the
- * same page objects work on desktop and mobile projects.
- */
 export class NavBar {
   readonly toggler: Locator;
   readonly homeLink: Locator;

@@ -4,12 +4,6 @@ import { CartPage, HomePage, ProductPage } from '../../src/pages';
 import { config } from '../../src/config';
 import type { Page } from '@playwright/test';
 
-/**
- * Cart feature — UI.
- * Test IDs map 1:1 to the "Cart" sheet of test-cases/DemoBlaze_TestCases.xlsx.
- */
-
-/** Adds a product through the UI and returns the price shown on its page. */
 async function addProductViaUi(page: Page, productId: number): Promise<number> {
   const productPage = new ProductPage(page);
   await productPage.openById(productId);
@@ -50,7 +44,6 @@ test.describe('Cart — guest user', { tag: '@cart' }, () => {
     async ({ page, browser }) => {
       await addProductViaUi(page, Products.nexus6.id);
 
-      // A brand-new browser context = a different guest with a different cart cookie.
       const otherContext = await browser.newContext({ baseURL: config.baseURL });
       await seedGuestIdentity(otherContext);
       const otherCart = new CartPage(await otherContext.newPage());
@@ -114,7 +107,6 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
     '[TC-CART-007] deleting a line removes it and updates the total',
     { tag: '@regression' },
     async ({ authenticatedPage, api, testUser }) => {
-      // Seed through the API: faster and keeps this test focused on deletion.
       await api.addToCart(testUser.token, Products.samsungGalaxyS6.id);
       await api.addToCart(testUser.token, Products.appleMonitor24.id);
       const keptPrice = (await api.view(Products.appleMonitor24.id)).price;

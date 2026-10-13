@@ -17,7 +17,6 @@ export class HomePage extends BasePage {
     this.previousPageButton = page.locator('#prev2');
   }
 
-  /** The product grid is filled asynchronously from GET /entries. */
   async waitUntilReady(): Promise<void> {
     await expect(this.productCards.first()).toBeVisible();
   }
@@ -38,7 +37,6 @@ export class HomePage extends BasePage {
     await test.step(`Filter catalogue by "${label}"`, async () => {
       const before = await this.productTitles.allTextContents();
       await this.page.getByRole('link', { name: label, exact: true }).click();
-      // Wait until the grid re-renders with a different product set.
       await expect.poll(async () => (await this.productTitles.allTextContents()).join('|')).not.toBe(before.join('|'));
     });
   }

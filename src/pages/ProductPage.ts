@@ -26,7 +26,6 @@ export class ProductPage extends BasePage {
     });
   }
 
-  /** Product details are loaded asynchronously from POST /view. */
   async waitUntilReady(): Promise<void> {
     await expect(this.name).not.toBeEmpty();
     await expect(this.price).toContainText('$');
@@ -40,11 +39,6 @@ export class ProductPage extends BasePage {
     return parsePrice(await this.price.innerText());
   }
 
-  /**
-   * Clicks "Add to cart" and returns the confirmation alert text.
-   * Waiting for the alert also guarantees the /addtocart request completed,
-   * which prevents racing to the cart page before the item is persisted.
-   */
   async addToCart(): Promise<string> {
     return test.step('Add product to cart', async () => {
       await this.waitUntilReady();

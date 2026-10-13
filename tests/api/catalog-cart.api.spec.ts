@@ -2,7 +2,6 @@ import { test, expect } from '../../src/fixtures';
 import { Categories, Products } from '../../src/data/catalog';
 import type { ProductEntry } from '../../src/api/DemoblazeApi';
 
-/** Lightweight contract check — keeps the suite dependency-free (no schema lib needed). */
 function expectProductContract(p: ProductEntry): void {
   expect(p).toEqual(
     expect.objectContaining({
