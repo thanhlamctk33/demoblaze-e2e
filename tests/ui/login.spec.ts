@@ -1,6 +1,7 @@
 import { test, expect } from '../../src/fixtures';
 import { Messages } from '../../src/data/catalog';
 import { buildUser } from '../../src/data/factories';
+import { loginValidationCases } from '../../src/data/cases';
 
 test.describe('Login', { tag: '@login' }, () => {
   test.beforeEach(async ({ homePage }) => {
@@ -35,17 +36,12 @@ test.describe('Login', { tag: '@login' }, () => {
     await homePage.nav.expectLoggedOut();
   });
 
-  const missingFieldCases = [
-    { id: 'TC-LOGIN-004', title: 'both fields empty', username: '', password: '' },
-    { id: 'TC-LOGIN-005', title: 'username empty', username: '', password: 'anyPassword1' },
-    { id: 'TC-LOGIN-006', title: 'password empty', username: 'anyUser', password: '' },
-  ];
-  for (const c of missingFieldCases) {
+  for (const c of loginValidationCases()) {
     test(`[${c.id}] validation when ${c.title}`, { tag: '@regression' }, async ({ homePage }) => {
       await homePage.nav.openLogin();
       const alert = await homePage.loginModal.loginExpectingAlert(c.username, c.password);
 
-      expect(alert).toBe(Messages.login.emptyFields);
+      expect(alert).toBe(c.expectedAlert);
       await homePage.nav.expectLoggedOut();
     });
   }

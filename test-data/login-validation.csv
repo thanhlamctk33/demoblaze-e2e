@@ -1,0 +1,4 @@
+tc_id,title,username,password,expected_alert
+TC-LOGIN-004,both fields empty,,,Please fill out Username and Password.
+TC-LOGIN-005,username empty,,anyPassword1,Please fill out Username and Password.
+TC-LOGIN-006,password empty,anyUser,,Please fill out Username and Password.

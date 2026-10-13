@@ -1,0 +1,6 @@
+tc_id,title,name,country,city,card,month,year,known_bug
+TC-ORDER-004,name is empty,,Vietnam,Ho Chi Minh City,4111111111111111,12,2030,
+TC-ORDER-005,credit card is empty,QA Buyer,Vietnam,Ho Chi Minh City,,12,2030,
+TC-ORDER-006,all fields are empty,,,,,,,
+TC-ORDER-007,name is whitespace only,"   ",Vietnam,Ho Chi Minh City,4111111111111111,12,2030,BUG-04: a whitespace-only name passes the mandatory-field check
+TC-ORDER-013,credit card is not numeric,QA Buyer,Vietnam,Ho Chi Minh City,not-a-card,12,2030,"BUG-03: card field accepts any text, no format validation"

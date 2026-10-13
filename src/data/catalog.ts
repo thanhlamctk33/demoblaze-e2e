@@ -1,12 +1,33 @@
-export const Products = {
-  samsungGalaxyS6: { id: 1, name: 'Samsung galaxy s6', category: 'phone' },
-  nokiaLumia1520: { id: 2, name: 'Nokia lumia 1520', category: 'phone' },
-  nexus6: { id: 3, name: 'Nexus 6', category: 'phone' },
-  sonyVaioI5: { id: 8, name: 'Sony vaio i5', category: 'notebook' },
-  appleMonitor24: { id: 10, name: 'Apple monitor 24', category: 'monitor' },
-} as const;
+import { column, readCsv } from './csv';
 
-export type Product = (typeof Products)[keyof typeof Products];
+export interface Product {
+  id: number;
+  name: string;
+  category: string;
+}
+
+const PRODUCTS_FILE = 'products.csv';
+
+const productsByKey: Record<string, Product> = Object.fromEntries(
+  readCsv(PRODUCTS_FILE).map((row) => [
+    column(row, 'key', PRODUCTS_FILE),
+    {
+      id: Number(column(row, 'id', PRODUCTS_FILE)),
+      name: column(row, 'name', PRODUCTS_FILE),
+      category: column(row, 'category', PRODUCTS_FILE),
+    },
+  ]),
+);
+
+export const Products: Record<string, Product> = new Proxy(productsByKey, {
+  get(target, key) {
+    if (typeof key !== 'string') return Reflect.get(target, key);
+    if (!(key in target)) {
+      throw new Error(`Unknown product "${String(key)}" — add it to test-data/${PRODUCTS_FILE}`);
+    }
+    return target[key];
+  },
+});
 
 export const Categories = {
   Phones: 'phone',
@@ -16,7 +37,6 @@ export const Categories = {
 
 export const Messages = {
   login: {
-    emptyFields: 'Please fill out Username and Password.',
     wrongPassword: 'Wrong password.',
     userNotFound: 'User does not exist.',
   },

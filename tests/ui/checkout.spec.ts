@@ -1,6 +1,7 @@
 import { test, expect } from '../../src/fixtures';
 import { Messages, Products } from '../../src/data/catalog';
 import { buildOrder } from '../../src/data/factories';
+import { acceptedOrderCases, rejectedOrderCases } from '../../src/data/cases';
 import { CartPage, ProductPage } from '../../src/pages';
 
 test.describe('Checkout', { tag: '@checkout' }, () => {
@@ -88,50 +89,44 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
     },
   );
 
-  test(
-    '[TC-ORDER-003] order succeeds with only the mandatory fields (name, card)',
-    { tag: '@regression' },
-    async ({ authenticatedPage, api, testUser }) => {
-      await api.addToCart(testUser.token, Products.nokiaLumia1520.id);
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(1);
-      await cart.openPlaceOrder();
-
-      const order = buildOrder({ country: '', city: '', month: '', year: '' });
-      const receipt = await (await cart.orderModal.purchase(order)).getReceipt();
-
-      expect(receipt.name).toBe(order.name);
-    },
-  );
-
-  const invalidOrders = [
-    { id: 'TC-ORDER-004', title: 'name is empty', overrides: { name: '' } },
-    { id: 'TC-ORDER-005', title: 'credit card is empty', overrides: { card: '' } },
-    {
-      id: 'TC-ORDER-006',
-      title: 'all fields are empty',
-      overrides: { name: '', country: '', city: '', card: '', month: '', year: '' },
-    },
-  ];
-  for (const c of invalidOrders) {
+  for (const c of acceptedOrderCases()) {
     test(
-      `[${c.id}] order is blocked when ${c.title}`,
+      `[${c.id}] order succeeds when ${c.title}`,
       { tag: '@regression' },
       async ({ authenticatedPage, api, testUser }) => {
-        await api.addToCart(testUser.token, Products.nexus6.id);
+        await api.addToCart(testUser.token, Products[c.product].id);
         const cart = new CartPage(authenticatedPage);
         await cart.open();
         await cart.expectLineCount(1);
         await cart.openPlaceOrder();
 
-        const confirmed = await cart.orderModal.submitAndCheckConfirmed(buildOrder(c.overrides));
+        const receipt = await (await cart.orderModal.purchase(c.order)).getReceipt();
 
-        expect(confirmed, 'no order confirmation should be shown').toBe(false);
-        await cart.open();
-        await cart.expectLineCount(1);
+        expect(receipt.name).toBe(c.order.name);
+        expect(receipt.cardNumber.endsWith(c.order.card.slice(-4))).toBe(true);
       },
     );
+  }
+
+  for (const c of rejectedOrderCases()) {
+    test(`[${c.id}] order is blocked when ${c.title} ${c.knownBug ? '@known-bug' : '@regression'}`, async ({
+      authenticatedPage,
+      api,
+      testUser,
+    }) => {
+      test.fail(!!c.knownBug, c.knownBug);
+      await api.addToCart(testUser.token, Products.nexus6.id);
+      const cart = new CartPage(authenticatedPage);
+      await cart.open();
+      await cart.expectLineCount(1);
+      await cart.openPlaceOrder();
+
+      const confirmed = await cart.orderModal.submitAndCheckConfirmed(c.order);
+
+      expect(confirmed, 'no order confirmation should be shown').toBe(false);
+      await cart.open();
+      await cart.expectLineCount(1);
+    });
   }
 
   test(
@@ -165,23 +160,6 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
     },
   );
 
-  test(
-    '[TC-ORDER-010] unicode and special characters in the name are echoed safely',
-    { tag: '@regression' },
-    async ({ authenticatedPage, api, testUser }) => {
-      await api.addToCart(testUser.token, Products.samsungGalaxyS6.id);
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(1);
-      await cart.openPlaceOrder();
-
-      const order = buildOrder({ name: `Nguyễn Văn Ánh <b>&"'` });
-      const receipt = await (await cart.orderModal.purchase(order)).getReceipt();
-
-      expect(receipt.name).toBe(order.name);
-    },
-  );
-
   test.describe('Known defects', { tag: '@known-bug' }, () => {
     test('[TC-ORDER-011] receipt date shows the current month', async ({ authenticatedPage, api, testUser }) => {
       test.fail(true, 'BUG-01: receipt month is zero-based (JS getMonth()) — October renders as 9');
@@ -204,32 +182,6 @@ test.describe('Checkout', { tag: '@checkout' }, () => {
       await cart.openPlaceOrder();
 
       expect(await cart.orderModal.submitAndCheckConfirmed(buildOrder())).toBe(false);
-    });
-
-    test('[TC-ORDER-007] order is blocked when name is whitespace only', async ({
-      authenticatedPage,
-      api,
-      testUser,
-    }) => {
-      test.fail(true, 'BUG-04: a whitespace-only name passes the mandatory-field check');
-      await api.addToCart(testUser.token, Products.nexus6.id);
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(1);
-      await cart.openPlaceOrder();
-
-      expect(await cart.orderModal.submitAndCheckConfirmed(buildOrder({ name: '   ' }))).toBe(false);
-    });
-
-    test('[TC-ORDER-013] credit card number must be numeric', async ({ authenticatedPage, api, testUser }) => {
-      test.fail(true, 'BUG-03: card field accepts any text, no format validation');
-      await api.addToCart(testUser.token, Products.nexus6.id);
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(1);
-      await cart.openPlaceOrder();
-
-      expect(await cart.orderModal.submitAndCheckConfirmed(buildOrder({ card: 'not-a-card' }))).toBe(false);
     });
 
     test('[TC-ORDER-014] receipt masks the credit card number', async ({ authenticatedPage, api, testUser }) => {

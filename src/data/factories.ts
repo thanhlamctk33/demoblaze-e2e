@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { column, readCsv, type CsvRow } from './csv';
 
 export interface UserCredentials {
   username: string;
@@ -24,14 +25,24 @@ export function buildUser(overrides: Partial<UserCredentials> = {}): UserCredent
   };
 }
 
+const ORDER_FIELDS = ['name', 'country', 'city', 'card', 'month', 'year'] as const;
+const ORDER_DEFAULTS_FILE = 'order-defaults.csv';
+const [orderDefaults] = readCsv(ORDER_DEFAULTS_FILE);
+if (!orderDefaults) throw new Error(`test-data/${ORDER_DEFAULTS_FILE} needs one data row`);
+
 export function buildOrder(overrides: Partial<OrderDetails> = {}): OrderDetails {
+  const d = (name: string) => column(orderDefaults, name, ORDER_DEFAULTS_FILE);
   return {
-    name: `QA Buyer ${shortId()}`,
-    country: 'Vietnam',
-    city: 'Ho Chi Minh City',
-    card: '4111111111111111',
-    month: '12',
-    year: '2030',
+    name: `${d('name_prefix')} ${shortId()}`,
+    country: d('country'),
+    city: d('city'),
+    card: d('card'),
+    month: d('month'),
+    year: d('year'),
     ...overrides,
   };
+}
+
+export function orderFromRow(row: CsvRow, file: string): OrderDetails {
+  return Object.fromEntries(ORDER_FIELDS.map((f) => [f, column(row, f, file)])) as unknown as OrderDetails;
 }

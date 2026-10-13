@@ -1,0 +1,3 @@
+tc_id,title,product,name,country,city,card,month,year
+TC-ORDER-003,only the mandatory fields (name and card) are filled,nokiaLumia1520,QA Buyer Mandatory,,,4111111111111111,,
+TC-ORDER-010,the name contains unicode and special characters,samsungGalaxyS6,"Nguyễn Văn Ánh <b>&""'",Vietnam,Ho Chi Minh City,4111111111111111,12,2030
