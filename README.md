@@ -27,19 +27,26 @@ No account is needed: each run creates its own test user through the API.
 
 ## 2. Useful commands
 
-| Command                      | What it runs                                                    |
-| ---------------------------- | --------------------------------------------------------------- |
-| `npm test`                   | everything (API, 3 browsers, 2 mobile devices, perf)            |
-| `npm run test:smoke`         | quick check: critical tests on API + Chrome                     |
-| `npm run test:regression`    | full regression on API + Chrome, Firefox, Safari                |
-| `npm run test:cross-browser` | all UI tests on Chrome, Firefox, Safari                         |
-| `npm run test:mobile`        | smoke tests on Pixel 7 and iPhone 14                            |
-| `npm run test:api`           | API tests only                                                  |
-| `npm run test:headed`        | watch the browser while tests run                               |
-| `npm run report`             | Playwright HTML report                                          |
-| `npm run report:allure`      | Allure report                                                   |
-| `npm run perf:smoke`         | k6 load test of the checkout flow (needs k6)                    |
-| `npm run perf:rps`           | k6 throughput test: holds 10 requests per second (`TARGET_RPS`) |
+| Command                              | What it runs                                                       |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `npm test`                           | everything (API, 3 browsers, 2 mobile devices, perf)               |
+| `npm run test:smoke`                 | quick check: critical tests on API + Chrome                        |
+| `npm run test:regression`            | full regression on API + Chrome, Firefox, Safari                   |
+| `npm run test:cross-browser`         | all UI tests on Chrome, Firefox, Safari                            |
+| `npm run test:mobile`                | smoke tests on Pixel 7 and iPhone 14                               |
+| `npm run test:api`                   | API tests only                                                     |
+| `npm run test:contract`              | JSON schema contract tests for `/login`, `/addtocart`, `/viewcart` |
+| `npm run test:concurrency`           | parallel requests, replays, double-click and multi-tab tests       |
+| `npm run test:perf`                  | page-load and API response-time budgets only                       |
+| `npm run test:headed`                | watch the browser while tests run                                  |
+| `npm run report`                     | Playwright HTML report                                             |
+| `npm run report:allure`              | Allure report                                                      |
+| `npm run perf:smoke`                 | k6 checkout flow, 1 user for 30 s (needs k6)                       |
+| `npm run perf:load`                  | k6 checkout flow, ramp to 5 users and hold 1 min                   |
+| `npm run perf:spike`                 | k6 checkout flow, jump from 1 to 20 users in 10 s (`PEAK_VUS`)     |
+| `npm run perf:rps`                   | k6 throughput test: holds 10 requests per second (`TARGET_RPS`)    |
+| `npm run perf:stress`                | k6 throughput test: target rate, then `STRESS_RPS` (default 2×)    |
+| `npm run lint` / `npm run typecheck` | code quality checks                                                |
 
 Run one test case: `npx playwright test --grep TC-ORDER-001`
 
@@ -114,7 +121,7 @@ test (tests/)  →  fixture (src/fixtures)  →  Page Object / API client (src/p
 | Performance | Playwright + k6             | page load budget; smoke / load / spike profiles                                          |
 | Throughput  | k6 (arrival rate)           | hold N requests per second; pass if ≤ 1% of requests are dropped, errors < 1%, p95 < 2 s |
 
-Current suite: 23 API tests, 40 UI tests per browser, 5 mobile smoke tests, 3 performance tests, plus k6 load and throughput profiles.
+Current suite: 23 API tests, 42 UI tests per browser, 5 mobile smoke tests, 3 performance tests, plus k6 load and throughput profiles.
 
 **Users vs. requests per second.** `checkout-flow.js` simulates N users: if the site slows down, they send fewer requests, so throughput drops silently. `throughput.js` instead keeps a fixed arrival rate (e.g. 10 req/s) whatever the response time; if the system cannot keep up, k6 drops requests and the test fails. Raise `TARGET_RPS` / `STRESS_RPS` only against an environment you own.
 
@@ -185,12 +192,37 @@ test('[TC-CART-0XX] my new scenario', { tag: '@regression' }, async ({ cartWith 
 
 ## 10. Applying this to a payment system
 
-[`test-cases/payment-gateway-strategy.csv`](test-cases/payment-gateway-strategy.csv) lists 62 scenarios for a high-traffic payment gateway: idempotency, concurrency, Redis, message queues, database, AWS, partner APIs and security. To test such a system, the framework would add:
+[`test-cases/payment-gateway-strategy.csv`](test-cases/payment-gateway-strategy.csv) lists 62 scenarios for a high-traffic payment gateway in 9 areas: payment & idempotency, concurrency, Redis, message queues, database, AWS, partner APIs, security and performance. Each scenario names the DemoBlaze test that already proves the same technique, where one exists.
 
-- **Testcontainers** — real Redis, Postgres and Kafka in Docker for each test run
-- **WireMock** — fake bank / partner APIs (timeouts, errors, duplicate webhooks)
-- **LocalStack** — AWS services (SQS, SNS, S3) running locally
-- **k6 in CI** — load tests with response-time and error-rate limits
+DemoBlaze has no real payments, cache or queue, but the suite already tests the failure modes that matter most for a payment system: **money must never be lost, duplicated or wrong under load**.
+
+| Payment risk                          | Already tested on DemoBlaze                                                 | Next step on a real gateway                                          |
+| ------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Double charge on retry / double click | TC-CONC-002 (replayed request → 1 line), TC-CONC-007/008 (BUG-08, BUG-09)   | Idempotency-Key replayed 50x in parallel; different payload → 409    |
+| Race conditions, lost writes          | TC-CONC-001 (10 parallel writes, none lost), TC-CONC-006 (two tabs)         | Parallel debits on one wallet, capture vs. refund, optimistic locks  |
+| Partner API contract changes          | TC-CTR-001…007 (JSON schemas, error format, status codes — BUG-10, BUG-11)  | Pact contracts with partners, event schemas in a schema registry     |
+| Slow or failing under peak traffic    | k6 smoke / load / spike with p95, p99, error-rate and business-error limits | TPS-based, soak and stress tests in the pipeline                     |
+| Card data exposure, injection         | TC-ORDER-014 (card not masked, BUG-05), TC-LOGIN-011 / TC-LOGIN-019         | PAN scans of DB and logs, IDOR, amount tampering, webhook signatures |
+
+**Latest k6 spike run** (13 Oct 2026, 1 → 20 users, checkout flow):
+
+| Metric                                         | Result          | Limit         |
+| ---------------------------------------------- | --------------- | ------------- |
+| Orders placed                                  | 301             | —             |
+| Response time p95 / p99                        | 557 ms / 999 ms | < 2 s / < 4 s |
+| Failed HTTP requests                           | 0.06 % (1/1525) | < 1 %         |
+| Business errors (HTTP 200 with `errorMessage`) | 0 %             | < 1 %         |
+| Checks passed                                  | 99.90 %         | > 99 %        |
+
+Business errors are counted separately because the DemoBlaze API, like many older partner APIs, reports failures with HTTP 200, so counting failed HTTP requests alone would miss them.
+
+To test a real payment system, the framework would add:
+
+- **Testcontainers** — real Redis, Postgres and Kafka in Docker for each run: distributed locks, cache invalidation, transactions, duplicate messages, dead-letter queues; chaos tests by stopping a container mid-test
+- **WireMock** — fake bank / partner APIs: declines, timeouts, 503 and 429 errors, duplicate or out-of-order webhooks
+- **LocalStack** — AWS services (SQS, SNS, S3, Secrets Manager) running locally; the same tests run against staging by changing the endpoint in `src/config`
+- **Pact** — contract tests with each partner, growing from the JSON schemas in `src/api/schemas.ts`
+- **k6 in CI** — smoke on every pull request, load nightly, spike / soak / stress before each release; the limits above fail the pipeline when breached
 
 ## 11. Limitations
 
