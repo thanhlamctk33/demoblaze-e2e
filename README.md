@@ -3,12 +3,12 @@
 End-to-end test framework for [DemoBlaze](https://www.demoblaze.com), built with **Playwright + TypeScript**.
 It covers the **Login** and **Cart / Place Order** features with UI, API, regression and performance tests.
 
-| Deliverable | Where                                                                       |
-| ----------- | --------------------------------------------------------------------------- |
-| Test cases  | [`test-cases/`](test-cases/README.md) — 94 cases as CSV, plus a defect list |
-| Framework   | this repository                                                             |
-| Demo script | [`tests/ui/checkout.spec.ts`](tests/ui/checkout.spec.ts) → `[TC-ORDER-001]` |
-| CI/CD       | AWS CodePipeline + CodeBuild, GitHub Actions                                |
+| Deliverable | Where                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------- |
+| Test cases  | [`test-cases/`](test-cases/README.md) — 94 cases as CSV (72 functional, 22 non-functional), plus a defect list |
+| Framework   | this repository                                                                                                |
+| Demo script | [`tests/ui/checkout.spec.ts`](tests/ui/checkout.spec.ts) → `[TC-ORDER-001]`                                    |
+| CI/CD       | AWS CodePipeline + CodeBuild, GitHub Actions                                                                   |
 
 ---
 
@@ -63,7 +63,9 @@ demoblaze-e2e/
 │   ├── reporters/          clears old Allure results before each run
 │   └── utils/              alerts, prices, network tracking
 │
-├── test-cases/             test case documentation (CSV, one file per module)
+├── test-cases/             test case documentation (CSV)
+│   ├── functional/         login, cart, place order, API
+│   └── non-functional/     performance, concurrency, security, compatibility
 ├── test-data/              test data (CSV): products, valid / invalid orders, logins
 ├── perf/k6/                k6 load tests: smoke, load, spike
 │
@@ -150,7 +152,7 @@ Then approve the GitHub connection once in the AWS console (Developer Tools → 
 
 ## 9. Add a new test
 
-1. Add the case to the right CSV in `test-cases/` and give it an ID.
+1. Add the case to the right CSV in `test-cases/functional/` or `test-cases/non-functional/` and give it an ID.
 2. If it is only new input data, add a row to a CSV in `test-data/` — done.
 3. Otherwise write the test, starting the title with the ID:
 
@@ -170,7 +172,7 @@ test('[TC-CART-0XX] my new scenario', { tag: '@regression' }, async ({ cartWith 
 
 ## 10. Applying this to a payment system
 
-[`test-cases/06-payment-gateway-strategy.csv`](test-cases/06-payment-gateway-strategy.csv) lists 62 scenarios for a high-traffic payment gateway: idempotency, concurrency, Redis, message queues, database, AWS, partner APIs and security. To test such a system, the framework would add:
+[`test-cases/payment-gateway-strategy.csv`](test-cases/payment-gateway-strategy.csv) lists 62 scenarios for a high-traffic payment gateway: idempotency, concurrency, Redis, message queues, database, AWS, partner APIs and security. To test such a system, the framework would add:
 
 - **Testcontainers** — real Redis, Postgres and Kafka in Docker for each test run
 - **WireMock** — fake bank / partner APIs (timeouts, errors, duplicate webhooks)

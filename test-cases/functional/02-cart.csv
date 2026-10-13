@@ -1,0 +1,53 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-CART-001,Add to cart,Guest adds a product from the catalogue,Functional,P1,Guest (not logged in),Samsung galaxy s6,"1. Open home page
+2. Click the product
+3. Note the price
+4. Click 'Add to cart'
+5. Accept the alert
+6. Open Cart",Alert 'Product added' shown; cart has exactly 1 line with the same title and price; Total equals that price.,Automated,tests/ui/cart.spec.ts,@smoke @regression,Not Run,
+TC-CART-002,Empty cart,Empty cart shows no lines and no total,Edge,P2,New guest session,—,1. Open cart.html in a fresh session,No product rows; Total is empty; 'Place Order' button visible.,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-003,Isolation,Cart of one guest is not visible to another guest,Functional,P2,Two separate browser sessions,Nexus 6,"1. Session A: add a product
+2. Session B (new browser context): open Cart",Session B cart is empty.,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-004,Add to cart,Logged-in user adds a product,Functional,P1,User is logged in,Nokia lumia 1520,"1. Log in
+2. Open product page
+3. Click 'Add to cart'
+4. Open Cart",Alert 'Product added.'; cart shows the product with correct title and price.,Automated,tests/ui/cart.spec.ts,@smoke @regression,Not Run,
+TC-CART-005,Total,Total equals the sum of several different products,Functional,P1,"User logged in, empty cart","Samsung galaxy s6, Sony vaio i5, Apple monitor 24 (phone, laptop, monitor)","1. Add the three products
+2. Open Cart",3 lines with the correct titles; Total = sum of the three product-page prices.,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-006,Quantity,Adding the same product twice,Edge,P2,"User logged in, empty cart",Nexus 6 ×2,"1. Add Nexus 6
+2. Add Nexus 6 again
+3. Open Cart",Two separate lines (no quantity column); Total = 2 × price.,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-007,Delete,Deleting a line updates the cart and total,Functional,P1,Cart has Samsung galaxy s6 + Apple monitor 24,—,"1. Open Cart
+2. Click 'Delete' on Samsung galaxy s6",Line removed after reload; only Apple monitor 24 remains; Total = its price.,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-008,Delete,Deleting the last line leaves an empty cart,Edge,P2,Cart has 1 item,—,"1. Open Cart
+2. Delete the only line",Cart empty; Total empty.,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-009,Persistence,Cart persists across logout and login,Functional,P1,"User logged in, empty cart",Sony vaio i5,"1. Add a product
+2. Log out
+3. Log in again
+4. Open Cart",The product is still in the cart (server-side cart).,Automated,tests/ui/cart.spec.ts,@regression,Not Run,
+TC-CART-010,Integration,Items added via API are rendered in the UI cart,Functional,P2,User logged in,2 products added via POST /addtocart,"1. Add products through the API
+2. Open Cart in the UI",UI shows both lines; Total = sum of their API prices.,Automated,tests/ui/cart.spec.ts,@regression @hybrid,Not Run,
+TC-CART-011,UI,Cart line layout,UI,P3,Cart has items,—,"1. Open Cart
+2. Inspect each row","Each row shows Pic, Title, Price and a 'Delete' link; headers Pic/Title/Price/x.",Manual,,,Not Run,
+TC-CART-012,Robustness,Double-click 'Add to cart',Edge,P2,—,any product,"1. Open product page
+2. Double-click 'Add to cart' quickly
+3. Open Cart","Behaviour is defined: either 1 or 2 lines, matching the number of 'Product added' alerts.",Candidate,,,Not Run,
+TC-CART-013,Navigation,Open cart via direct URL,Functional,P3,Cart has items,/cart.html,1. Type https://www.demoblaze.com/cart.html in the address bar,Cart loads with all lines and correct total.,Manual,,,Not Run,
+TC-CART-014,Negative,Invalid product id,Negative,P3,—,prod.html?idp_=99999,"1. Open prod.html?idp_=99999
+2. Click 'Add to cart' if shown
+3. Open Cart",Graceful 'not found' handling; no empty/undefined line added to the cart.,Candidate,,,Not Run,
+TC-CART-015,Negative,Network failure while adding,Negative,P3,—,DevTools → Offline,"1. Open product page
+2. Go offline
+3. Click 'Add to cart'",User is informed the item was not added; no false 'Product added' alert.,Manual,,,Not Run,
+TC-CART-016,Guest → login,Guest cart after logging in,Edge,P3,Guest has items in cart,—,"1. As guest add an item
+2. Log in
+3. Open Cart",Defined behaviour (merge or keep separate) — document actual result.,Manual,,,Not Run,
+TC-CART-017,Volume,Large cart (20+ lines),Edge,P3,User logged in,20 products,"1. Add 20 items (API seeding)
+2. Open Cart",All lines render; Total correct; page loads within performance budget.,Candidate,,,Not Run,
+TC-CART-018,Delete,Deleting one of two identical lines,Edge,P3,Cart has Nexus 6 ×2,—,"1. Open Cart
+2. Delete one Nexus 6 line",Exactly one Nexus 6 line remains.,Candidate,,,Not Run,
+TC-CART-019,Consistency,Cart in two tabs,Edge,P3,User logged in,—,"1. Open Cart in tabs A and B
+2. Delete an item in A
+3. Reload B",B reflects the deletion after reload.,Manual,,,Not Run,
+TC-CART-020,Guest session,Guest cart after clearing cookies,Edge,P3,Guest has items,—,"1. Clear site cookies
+2. Open Cart",Cart is empty (guest cart tied to cookie).,Manual,,,Not Run,

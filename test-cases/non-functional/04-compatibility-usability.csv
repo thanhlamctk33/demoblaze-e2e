@@ -1,0 +1,6 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-LOGIN-020,Usability,Submit with Enter key,Usability,P3,A registered user exists (auto-provisioned via API by the framework),valid credentials,"1. Open Log in modal
+2. Fill credentials
+3. Press Enter in the password field",Form submits (or behaviour documented if not supported).,Manual,,,Not Run,
+TC-LOGIN-025,Compatibility,"Login works on Chrome, Firefox, Safari and mobile",Compatibility,P2,A registered user exists (auto-provisioned via API by the framework),—,1. Run TC-LOGIN-001 and TC-LOGIN-009 on each browser / device,Same behaviour on all targets (hamburger menu used on mobile).,Automated,playwright.config.ts (projects),@smoke (mobile),Not Run,
+TC-CART-021,Compatibility,Add to cart on all browsers / mobile,Compatibility,P2,—,—,1. Run TC-CART-001 and TC-CART-004 on every project,"Same behaviour on Chromium, Firefox, WebKit, Pixel 7, iPhone 14.",Automated,playwright.config.ts (projects),@smoke,Not Run,

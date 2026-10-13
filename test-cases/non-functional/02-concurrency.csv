@@ -1,0 +1,23 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-CONC-001,Concurrency,"Parallel add-to-cart requests are all persisted, none lost",Functional,P1,"Registered user, empty cart (auto-provisioned via API by the framework)","10 parallel POST /addtocart, unique line ids, Nexus 6","1. Send 10 POST /addtocart in parallel, each with its own line id
+2. POST /viewcart",All 10 requests return 200; cart has exactly 10 lines and their ids equal the ids sent (no lost writes).,Automated,tests/api/concurrency.api.spec.ts,@api @concurrency @regression,Not Run,
+TC-CONC-002,Idempotency,Replaying the same request in parallel creates exactly one line,Edge,P1,"Registered user, empty cart (auto-provisioned via API by the framework)",10 identical POST /addtocart with the same line id,"1. Send the same POST /addtocart (same id, same payload) 10 times in parallel
+2. POST /viewcart",All requests return 200; cart has exactly 1 line with that id and product (replay is idempotent).,Automated,tests/api/concurrency.api.spec.ts,@api @concurrency @idempotency @smoke,Not Run,
+TC-CONC-003,Idempotency,Parallel deletes of the same line are safe,Edge,P2,"Registered user, empty cart (auto-provisioned via API by the framework); cart has 1 line",5 parallel POST /deleteitem with the same id,"1. Add 1 line
+2. Send 5 POST /deleteitem for that line in parallel
+3. POST /viewcart",No request errors; cart is empty; no exception from deleting an already-deleted line.,Automated,tests/api/concurrency.api.spec.ts,@api @concurrency @idempotency,Not Run,
+TC-CONC-004,Idempotency,Placing the order twice in parallel empties the cart once without errors,Edge,P1,"Registered user, empty cart (auto-provisioned via API by the framework); cart has 2 lines",2 parallel POST /deletecart (place order),"1. Add 2 products
+2. Send 2 place-order requests in parallel
+3. POST /viewcart",Both return 200; cart ends empty; no partial or duplicated state.,Automated,tests/api/concurrency.api.spec.ts,@api @concurrency @idempotency,Not Run,
+TC-CONC-005,Idempotency,Reusing an idempotency key with a different payload is rejected,Negative,P1,"Registered user, empty cart (auto-provisioned via API by the framework)","Same line id: first Samsung galaxy s6, then Apple monitor 24","1. POST /addtocart id=X prod_id=1
+2. POST /addtocart id=X prod_id=10
+3. POST /viewcart",Second request rejected (409/422) or ignored; cart keeps the original line with prod_id=1.,Automated,tests/api/concurrency.api.spec.ts,@api @concurrency @known-bug,Not Run,Known defect BUG-07: the line is silently overwritten with prod_id=10.
+TC-CONC-006,Concurrency,Same user adding from two tabs at once keeps both items,Functional,P2,"User logged in, two tabs in one session","Tab 1: Nexus 6, Tab 2: Sony vaio i5","1. Open a different product in each tab
+2. Click 'Add to cart' in both tabs at the same time
+3. Check the cart",Cart contains both products exactly once.,Automated,tests/ui/concurrency.spec.ts,@concurrency @regression,Not Run,
+TC-CONC-007,Double submit,Double-clicking 'Add to cart' adds the product once,Edge,P1,"User logged in, empty cart",Nexus 6,"1. Open the product page
+2. Double-click 'Add to cart'
+3. Wait for requests to settle; check the cart",Button is disabled / debounced after the first click; cart has 1 line.,Automated,tests/ui/concurrency.spec.ts,@concurrency @known-bug,Not Run,Known defect BUG-08: two /addtocart requests are sent and 2 lines are created.
+TC-CONC-008,Double submit,Double-clicking 'Purchase' submits the order once,Edge,P1,"User logged in, cart has 1 item",Valid order form,"1. Open Place Order and fill the form
+2. Double-click 'Purchase'
+3. Count place-order requests",Exactly one order request is sent (payment-style double-charge protection).,Automated,tests/ui/concurrency.spec.ts,@concurrency @known-bug,Not Run,Known defect BUG-09: two /deletecart requests are sent; on a real gateway this is a double charge.

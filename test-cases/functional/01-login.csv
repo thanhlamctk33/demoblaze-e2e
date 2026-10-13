@@ -1,0 +1,58 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-LOGIN-001,Valid login,Log in with valid credentials,Functional,P1,A registered user exists (auto-provisioned via API by the framework),username / password of the registered user,"1. Open https://www.demoblaze.com
+2. Click 'Log in' in the navbar
+3. Enter valid username and password
+4. Click 'Log in'","Modal closes, page reloads; navbar shows 'Welcome <username>' and 'Log out'; 'Log in' and 'Sign up' are hidden.",Automated,tests/ui/login.spec.ts,@smoke @regression,Not Run,
+TC-LOGIN-002,Invalid login,Wrong password is rejected,Negative,P1,A registered user exists (auto-provisioned via API by the framework),"valid username, wrong password","1. Open Log in modal
+2. Enter valid username and an incorrect password
+3. Click 'Log in'",Alert 'Wrong password.' is shown; user stays logged out.,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-003,Invalid login,Unregistered username is rejected,Negative,P1,—,random never-registered username,"1. Open Log in modal
+2. Enter an unregistered username and any password
+3. Click 'Log in'",Alert 'User does not exist.' is shown; user stays logged out.,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-004,Field validation,Both fields empty,Negative,P2,—,username='' password='',"1. Open Log in modal
+2. Leave both fields empty
+3. Click 'Log in'",Alert 'Please fill out Username and Password.'; no login request succeeds.,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-005,Field validation,Username empty,Negative,P2,—,username='' password='anyPassword1',"1. Open Log in modal
+2. Fill only the password
+3. Click 'Log in'",Alert 'Please fill out Username and Password.',Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-006,Field validation,Password empty,Negative,P2,—,username='anyUser' password='',"1. Open Log in modal
+2. Fill only the username
+3. Click 'Log in'",Alert 'Please fill out Username and Password.',Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-007,UI / Security,Password input is masked,UI,P2,—,—,"1. Open Log in modal
+2. Type into the Password field",Password field is type='password'; characters are masked.,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-008,Session,Session survives a page reload,Functional,P2,A registered user exists (auto-provisioned via API by the framework),—,"1. Log in with valid credentials
+2. Reload the page (F5)",User remains logged in ('Welcome <username>' still shown).,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-009,Logout,User can log out,Functional,P1,User is logged in,—,"1. Log in
+2. Click 'Log out'","User is redirected to home; 'Log in' / 'Sign up' visible, 'Welcome' and 'Log out' hidden.",Automated,tests/ui/login.spec.ts,@smoke @regression,Not Run,
+TC-LOGIN-010,Modal behaviour,Closing the modal does not log the user in,Edge,P3,A registered user exists (auto-provisioned via API by the framework),valid credentials,"1. Open Log in modal
+2. Fill valid credentials
+3. Click 'Close' instead of 'Log in'",Modal closes; user is still logged out.,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-012,Sign up → Login,A newly signed-up user can log in,Functional,P1,—,new unique username + password,"1. Click 'Sign up'
+2. Register a new unique user
+3. Accept 'Sign up successful.'
+4. Log in with the new credentials",Sign-up alert 'Sign up successful.'; login succeeds with 'Welcome <username>'.,Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-013,Sign up,Duplicate username is rejected on sign up,Negative,P2,A registered user exists (auto-provisioned via API by the framework),existing username,"1. Click 'Sign up'
+2. Enter an already registered username
+3. Click 'Sign up'",Alert 'This user already exist.',Automated,tests/ui/login.spec.ts,@regression,Not Run,
+TC-LOGIN-014,Modal behaviour,Close login modal with the × icon / Esc,UI,P3,—,—,"1. Open Log in modal
+2. Click the × icon
+3. Re-open and press Esc",Modal closes each time; page remains usable.,Manual,,,Not Run,
+TC-LOGIN-015,Edge input,Username with leading/trailing spaces,Edge,P3,A registered user exists (auto-provisioned via API by the framework),'  <username>  ',"1. Open Log in modal
+2. Enter the valid username padded with spaces + valid password
+3. Click 'Log in'","Behaviour is consistent and defined (either trimmed and accepted, or clearly rejected) — no confusing error.",Candidate,,,Not Run,
+TC-LOGIN-016,Edge input,Username case sensitivity,Edge,P3,A registered user exists (auto-provisioned via API by the framework),USERNAME in different case,"1. Open Log in modal
+2. Enter the username with changed letter case + valid password
+3. Click 'Log in'",Matches product rule for usernames (case-sensitive → 'User does not exist.'). Document actual behaviour.,Candidate,,,Not Run,
+TC-LOGIN-017,Edge input,Very long username / password (500+ chars),Edge,P3,—,500-char strings,"1. Open Log in modal
+2. Paste 500+ characters into both fields
+3. Click 'Log in'","Handled gracefully: an error alert, no hang, no layout break.",Candidate,,,Not Run,
+TC-LOGIN-018,Edge input,Unicode credentials,Edge,P3,User registered with unicode username e.g. 'người_dùng',unicode username / password,"1. Sign up with a unicode username
+2. Log in with it",Login succeeds; welcome text renders unicode correctly.,Candidate,,,Not Run,
+TC-LOGIN-021,Robustness,Double-click on 'Log in',Edge,P3,A registered user exists (auto-provisioned via API by the framework),valid credentials,"1. Open Log in modal
+2. Fill credentials
+3. Double-click 'Log in' quickly",Single successful login; no duplicate errors.,Manual,,,Not Run,
+TC-LOGIN-022,Session,Login state shared between tabs,Functional,P3,A registered user exists (auto-provisioned via API by the framework),—,"1. Log in in tab A
+2. Open the site in tab B",Tab B shows the user as logged in (cookie-based session).,Manual,,,Not Run,
+TC-LOGIN-024,Session,Expired / tampered token,Negative,P3,User logged in,edit 'tokenp_' cookie to a random value,"1. Log in
+2. Change the 'tokenp_' cookie value in DevTools
+3. Reload the page","User treated as logged out or alert 'Bad parameter, token malformed.' / 'Your token has expired, please login again.'",Manual,,,Not Run,

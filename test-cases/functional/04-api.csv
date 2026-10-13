@@ -1,0 +1,30 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-API-001,Auth API,Sign up then log in returns an auth token,Functional,P1,—,new unique user,"1. POST /signup
+2. POST /login",Signup has no errorMessage; login returns 'Auth_token: <token>'.,Automated,tests/api/auth.api.spec.ts,@api @smoke,Not Run,
+TC-API-002,Auth API,Duplicate sign-up is rejected,Negative,P2,A registered user exists (auto-provisioned via API by the framework),existing username,1. POST /signup with an existing username,errorMessage 'This user already exist.',Automated,tests/api/auth.api.spec.ts,@api,Not Run,
+TC-API-003,Auth API,Wrong password,Negative,P1,A registered user exists (auto-provisioned via API by the framework),wrong password,1. POST /login with wrong password,errorMessage 'Wrong password.',Automated,tests/api/auth.api.spec.ts,@api,Not Run,
+TC-API-004,Auth API,Unknown user,Negative,P2,—,random username,1. POST /login,errorMessage 'User does not exist.',Automated,tests/api/auth.api.spec.ts,@api,Not Run,
+TC-API-005,Catalog API,/entries contract,Functional,P1,—,—,1. GET /entries,"200; Items[] non-empty; each has id, title, price>0, cat∈{phone,notebook,monitor}, desc, img.",Automated,tests/api/catalog-cart.api.spec.ts,@api @smoke,Not Run,
+TC-API-006,Catalog API,/view returns the requested product,Functional,P2,—,id=1,1. POST /view {id:1},Title 'Samsung galaxy s6' and valid contract.,Automated,tests/api/catalog-cart.api.spec.ts,@api,Not Run,
+TC-API-007,Catalog API,/bycat filters by category,Functional,P2,—,cat=phone,1. POST /bycat {cat:'phone'},All items have cat='phone'.,Automated,tests/api/catalog-cart.api.spec.ts,@api,Not Run,
+TC-API-008,Cart API,"Add, view and delete a cart line",Functional,P1,"Logged-in token, empty cart",Nexus 6,"1. POST /addtocart
+2. POST /viewcart
+3. POST /deleteitem
+4. POST /viewcart","Line present after add, gone after delete.",Automated,tests/api/catalog-cart.api.spec.ts,@api @smoke,Not Run,
+TC-API-009,Cart API,Each add creates a separate line,Edge,P2,"Logged-in token, empty cart",Nexus 6 ×2,"1. POST /addtocart twice
+2. POST /viewcart",2 lines with distinct ids.,Automated,tests/api/catalog-cart.api.spec.ts,@api,Not Run,
+TC-CTR-001,Contract /login,Successful login returns an Auth_token string,Functional,P1,"Registered user, empty cart (auto-provisioned via API by the framework)",valid username / password,"1. POST /login with valid credentials
+2. Validate the body against loginSuccessSchema","HTTP 200, content-type application/json, body is a JSON string matching ^Auth_token: \S+$.",Automated,tests/api/contract.api.spec.ts,@api @contract @smoke,Not Run,
+TC-CTR-002,Contract /login,Failed login returns the error contract,Negative,P1,"Registered user, empty cart (auto-provisioned via API by the framework)",wrong password; unknown username,"1. POST /login with a wrong password
+2. POST /login with an unknown user
+3. Validate each body against errorSchema",Body is exactly { errorMessage: string } with 'Wrong password.' / 'User does not exist.'.,Automated,tests/api/contract.api.spec.ts,@api @contract @regression,Not Run,
+TC-CTR-003,Contract cart,/addtocart succeeds with an empty body and /viewcart returns the typed line,Functional,P1,"Registered user, empty cart (auto-provisioned via API by the framework)","Nexus 6, fixed line id","1. POST /addtocart
+2. POST /viewcart
+3. Validate against viewCartSchema","/addtocart: 200 with empty body. /viewcart: { Items: [{ cookie: string, id: string, prod_id: integer }] } with no extra fields.",Automated,tests/api/contract.api.spec.ts,@api @contract @smoke,Not Run,
+TC-CTR-004,Contract cart,/viewcart of an empty cart returns an empty Items array,Edge,P2,"Registered user, empty cart (auto-provisioned via API by the framework)",—,1. POST /viewcart for an empty cart,Body matches viewCartSchema and Items is [].,Automated,tests/api/contract.api.spec.ts,@api @contract @regression,Not Run,
+TC-CTR-005,Contract cart,Malformed token returns the error contract on /addtocart and /viewcart,Negative,P2,—,cookie='not-a-token',"1. POST /addtocart with a malformed token
+2. POST /viewcart with a malformed token","Body matches errorSchema with 'Bad parameter, token malformed.'; nothing is stored.",Automated,tests/api/contract.api.spec.ts,@api @contract @regression,Not Run,
+TC-CTR-006,Contract errors,Errors are reported with a 4xx status code,Negative,P2,—,unknown username,"1. POST /login with an unknown user
+2. Check the HTTP status","HTTP status is 4xx (e.g. 401/404), not 200.",Automated,tests/api/contract.api.spec.ts,@api @contract @known-bug,Not Run,Known defect BUG-10: every error is HTTP 200 with an errorMessage body.
+TC-CTR-007,Contract cart,/addtocart rejects a product id that does not exist,Negative,P2,"Registered user, empty cart (auto-provisioned via API by the framework)",prod_id=999999,"1. POST /addtocart with prod_id=999999
+2. POST /viewcart",Request rejected (4xx); cart stays empty.,Automated,tests/api/contract.api.spec.ts,@api @contract @known-bug,Not Run,Known defect BUG-11: the line is stored with prod_id=999999.

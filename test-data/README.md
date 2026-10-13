@@ -22,11 +22,11 @@ CSV files read by the tests at run time (UTF-8, first row = column names, quote 
 ## Example: add a rejected order
 
 ```csv
-TC-ORDER-015,card number is too short,QA Buyer,Vietnam,Ho Chi Minh City,4111,12,2030,BUG-03: card field accepts any text
+TC-ORDER-018,card number is too short,QA Buyer,Vietnam,Ho Chi Minh City,4111,12,2030,BUG-03: card field accepts any text
 ```
 
-Add the matching `TC-ORDER-015` row to `test-cases/03-place-order.csv`, then run:
+Add the matching `TC-ORDER-018` row to `test-cases/functional/03-place-order.csv`, then run:
 
 ```bash
-npx playwright test --grep TC-ORDER-015 --project=chromium
+npx playwright test --grep TC-ORDER-018 --project=chromium
 ```

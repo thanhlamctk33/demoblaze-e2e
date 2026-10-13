@@ -1,0 +1,12 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-PERF-001,Performance,Home page load budget,Performance,P2,—,budget PERF_PAGE_LOAD_MS / PERF_PRODUCTS_RENDERED_MS,"1. Navigate to home
+2. Collect Navigation Timing + time to product grid",load < 5s; grid visible < 6s (configurable). Metrics attached to the report.,Automated,tests/perf/performance.perf.spec.ts,@perf,Not Run,
+TC-PERF-002,Performance,/entries latency p50,Performance,P2,—,5 calls,1. Call GET /entries 5 times,p50 < 2s (configurable).,Automated,tests/perf/performance.perf.spec.ts,@perf,Not Run,
+TC-PERF-003,Performance,/login latency,Performance,P3,A registered user exists (auto-provisioned via API by the framework),—,1. POST /login,Response < 2s (configurable).,Automated,tests/perf/performance.perf.spec.ts,@perf,Not Run,
+TC-PERF-004,Load,Catalogue API under concurrent load (k6),Performance,P3,k6 installed,"5–20 virtual users, ~1 min",1. k6 run perf/k6/catalog-load.js,Error rate < 1%; p95 < 2s.,Automated,perf/k6/catalog-load.js,k6,Not Run,
+TC-K6-001,Load (k6),Checkout flow smoke: 1 VU for 30 s,Performance,P2,k6 installed; 1 user signed up in setup(),SCENARIO=smoke,"1. npm run perf:smoke
+2. Flow per iteration: login → add to cart → verify cart → place order → verify cart emptied","All thresholds pass: http_req_failed <1%, p95 <2 s, p99 <4 s, per-step p95 <1.5 s, checks >99%, business_errors <1%, checkout p95 <6 s.",Automated,perf/k6/checkout-flow.js,@perf @k6 @smoke,Not Run,"Run 13 Oct 2026: 11 iterations, 100% checks, p95 547 ms — all thresholds passed."
+TC-K6-002,Load (k6),"Checkout flow load: ramp to 5 VUs, hold 1 min",Performance,P2,k6 installed; PEAK_VUS users signed up in setup(),SCENARIO=load,"1. npm run perf:checkout
+2. Same flow as TC-K6-001",Same thresholds as TC-K6-001 under sustained load.,Automated,perf/k6/checkout-flow.js,@perf @k6 @regression,Not Run,Run nightly / on demand in the CI 'load' job.
+TC-K6-003,Spike (k6),"Checkout flow spike: 1 → 20 VUs in 10 s, hold 30 s, recover",Performance,P1,k6 installed; 20 users signed up in setup(),SCENARIO=spike PEAK_VUS=20,"1. npm run perf:spike
+2. Watch latency and errors during the ramp and after recovery",Same thresholds as TC-K6-001 during and after the spike; latency returns to baseline after ramp-down.,Automated,perf/k6/checkout-flow.js,@perf @k6 @spike,Not Run,"Run 13 Oct 2026: 301 orders, checks 99.90%, p95 557 ms, p99 999 ms, http_req_failed 0.06% (1/1525) — all thresholds passed."

@@ -1,0 +1,10 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
+TC-LOGIN-011,Security,SQL-injection style input is treated as text,Security,P2,—,"username=""' OR '1'='1' --"" password=""' OR '1'='1""","1. Open Log in modal
+2. Enter the injection payload in both fields
+3. Click 'Log in'","Alert 'User does not exist.'; no authentication bypass, no server error.",Automated,tests/ui/login.spec.ts,@regression @security,Not Run,
+TC-LOGIN-019,Security,Script injection in username is not executed,Security,P2,—,<script>alert(1)</script>,"1. Sign up with the payload as username (if accepted)
+2. Log in with it
+3. Observe navbar",No script executes; payload is rendered as plain text in 'Welcome …'.,Candidate,,,Not Run,
+TC-LOGIN-023,Security,Repeated wrong passwords (brute force),Security,P2,A registered user exists (auto-provisioned via API by the framework),10 wrong passwords in a row,1. Attempt login 10× with wrong password,Account lockout / throttling / CAPTCHA after N failures (security expectation). Record actual behaviour.,Manual,,,Not Run,
+TC-ORDER-014,Security,Receipt masks the card number,Security,P2,Cart has 1 item,card 4111111111111111,"1. Place an order
+2. Inspect 'Card Number' on the receipt",Only the last 4 digits are shown (e.g. **** 1111).,Automated,tests/ui/checkout.spec.ts,@known-bug,Not Run,
