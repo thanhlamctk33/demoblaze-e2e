@@ -5,7 +5,7 @@ It covers the **Login** and **Cart / Place Order** features with UI, API, regres
 
 | Deliverable | Where                                                                                                          |
 | ----------- | -------------------------------------------------------------------------------------------------------------- |
-| Test cases  | [`test-cases/`](test-cases/README.md) — 94 cases as CSV (72 functional, 22 non-functional), plus a defect list |
+| Test cases  | [`test-cases/`](test-cases/README.md) — 96 cases as CSV (72 functional, 24 non-functional), plus a defect list |
 | Framework   | this repository                                                                                                |
 | Demo script | [`tests/ui/checkout.spec.ts`](tests/ui/checkout.spec.ts) → `[TC-ORDER-001]`                                    |
 | CI/CD       | AWS CodePipeline + CodeBuild, GitHub Actions                                                                   |
@@ -27,18 +27,19 @@ No account is needed: each run creates its own test user through the API.
 
 ## 2. Useful commands
 
-| Command                      | What it runs                                         |
-| ---------------------------- | ---------------------------------------------------- |
-| `npm test`                   | everything (API, 3 browsers, 2 mobile devices, perf) |
-| `npm run test:smoke`         | quick check: critical tests on API + Chrome          |
-| `npm run test:regression`    | full regression on API + Chrome, Firefox, Safari     |
-| `npm run test:cross-browser` | all UI tests on Chrome, Firefox, Safari              |
-| `npm run test:mobile`        | smoke tests on Pixel 7 and iPhone 14                 |
-| `npm run test:api`           | API tests only                                       |
-| `npm run test:headed`        | watch the browser while tests run                    |
-| `npm run report`             | Playwright HTML report                               |
-| `npm run report:allure`      | Allure report                                        |
-| `npm run perf:smoke`         | k6 load test of the checkout flow (needs k6)         |
+| Command                      | What it runs                                                    |
+| ---------------------------- | --------------------------------------------------------------- |
+| `npm test`                   | everything (API, 3 browsers, 2 mobile devices, perf)            |
+| `npm run test:smoke`         | quick check: critical tests on API + Chrome                     |
+| `npm run test:regression`    | full regression on API + Chrome, Firefox, Safari                |
+| `npm run test:cross-browser` | all UI tests on Chrome, Firefox, Safari                         |
+| `npm run test:mobile`        | smoke tests on Pixel 7 and iPhone 14                            |
+| `npm run test:api`           | API tests only                                                  |
+| `npm run test:headed`        | watch the browser while tests run                               |
+| `npm run report`             | Playwright HTML report                                          |
+| `npm run report:allure`      | Allure report                                                   |
+| `npm run perf:smoke`         | k6 load test of the checkout flow (needs k6)                    |
+| `npm run perf:rps`           | k6 throughput test: holds 10 requests per second (`TARGET_RPS`) |
 
 Run one test case: `npx playwright test --grep TC-ORDER-001`
 
@@ -69,8 +70,8 @@ demoblaze-e2e/
 ├── test-data/              test data (CSV)
 │   ├── common/             products (shared with k6)
 │   ├── functional/         logins, valid / invalid orders
-│   └── non-functional/     security payloads, k6 load profiles
-├── perf/k6/                k6 load tests: smoke, load, spike
+│   └── non-functional/     security payloads, k6 load and throughput profiles
+├── perf/k6/                k6: checkout-flow.js (users: smoke / load / spike), throughput.js (requests per second)
 │
 ├── ci-cd/                  everything for pipelines
 │   ├── scripts/            shared Linux scripts: install.sh, run-tests.sh, run-load.sh
@@ -95,7 +96,7 @@ test (tests/)  →  fixture (src/fixtures)  →  Page Object / API client (src/p
 1. **Page Object Model** — selectors live in `src/pages`, so a UI change is fixed in one place. Tests only describe what should happen.
 2. **Fixtures** — tests ask for what they need instead of building it. Example: `cartWith(Products.nexus6)` adds the product through the API and opens the cart page in one line.
 3. **API for setup, UI for the behaviour under test** — creating users or filling the cart goes through the API: faster and more stable.
-4. **Data-driven** — inputs come from CSV files in `test-data/` (functional inputs, security payloads, k6 load profiles). Adding a row adds a test or a load step, no code needed.
+4. **Data-driven** — inputs come from CSV files in `test-data/` (functional inputs, security payloads, k6 load and throughput profiles). Adding a row adds a test or a load step, no code needed.
 5. **Random realistic data** — usernames and passwords are generated with [Faker](https://fakerjs.dev). Each test records its seed in the report; rerun with `FAKER_SEED=<seed>` to get the same data.
 6. **Isolated runs** — every parallel worker gets its own user, so tests never share a cart.
 7. **Known bugs are tracked** — site defects are tests tagged `@known-bug`. They pass while the bug exists and fail when it is fixed, as a reminder to update them.
@@ -104,15 +105,18 @@ test (tests/)  →  fixture (src/fixtures)  →  Page Object / API client (src/p
 
 ## 5. Test types
 
-| Type        | Tool                        | Example                                         |
-| ----------- | --------------------------- | ----------------------------------------------- |
-| UI          | Playwright                  | log in, add to cart, place order                |
-| API         | Playwright request          | sign up, login, add / view / delete cart lines  |
-| Contract    | JSON Schema (ajv)           | `/login`, `/addtocart`, `/viewcart` responses   |
-| Concurrency | Playwright (parallel calls) | 10 parallel adds, double-click on Purchase      |
-| Performance | Playwright + k6             | page load budget; smoke / load / spike profiles |
+| Type        | Tool                        | Example                                                                                  |
+| ----------- | --------------------------- | ---------------------------------------------------------------------------------------- |
+| UI          | Playwright                  | log in, add to cart, place order                                                         |
+| API         | Playwright request          | sign up, login, add / view / delete cart lines                                           |
+| Contract    | JSON Schema (ajv)           | `/login`, `/addtocart`, `/viewcart` responses                                            |
+| Concurrency | Playwright (parallel calls) | 10 parallel adds, double-click on Purchase                                               |
+| Performance | Playwright + k6             | page load budget; smoke / load / spike profiles                                          |
+| Throughput  | k6 (arrival rate)           | hold N requests per second; pass if ≤ 1% of requests are dropped, errors < 1%, p95 < 2 s |
 
-Current suite: 23 API tests, 40 UI tests per browser, 5 mobile smoke tests, 3 performance tests.
+Current suite: 23 API tests, 40 UI tests per browser, 5 mobile smoke tests, 3 performance tests, plus k6 load and throughput profiles.
+
+**Users vs. requests per second.** `checkout-flow.js` simulates N users: if the site slows down, they send fewer requests, so throughput drops silently. `throughput.js` instead keeps a fixed arrival rate (e.g. 10 req/s) whatever the response time; if the system cannot keep up, k6 drops requests and the test fails. Raise `TARGET_RPS` / `STRESS_RPS` only against an environment you own.
 
 ## 6. Configuration
 

@@ -6,7 +6,7 @@ CSV files read by the tests at run time. Adding a row adds a test or a load step
 test-data/
 ├── common/            shared by functional tests and k6
 ├── functional/        inputs for login and checkout behaviour
-└── non-functional/    security payloads and k6 load profiles
+└── non-functional/    security payloads, k6 load and throughput profiles
 ```
 
 ## common
@@ -26,12 +26,13 @@ test-data/
 
 ## non-functional
 
-| File                                                            | Used by                    | One row =                                                                                     |
-| --------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------- |
-| [`security-payloads.csv`](non-functional/security-payloads.csv) | `tests/ui/login.spec.ts`   | an injection payload that must be treated as plain text (TC-LOGIN-011)                        |
-| [`load-profiles.csv`](non-functional/load-profiles.csv)         | `perf/k6/checkout-flow.js` | one step of a k6 profile: ramp to `target_vus` users over `duration`; `{{peak}}` = `PEAK_VUS` |
+| File                                                                | Used by                    | One row =                                                                                                                                                                             |
+| ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`security-payloads.csv`](non-functional/security-payloads.csv)     | `tests/ui/login.spec.ts`   | an injection payload that must be treated as plain text (TC-LOGIN-011)                                                                                                                |
+| [`load-profiles.csv`](non-functional/load-profiles.csv)             | `perf/k6/checkout-flow.js` | one step of a k6 profile: ramp to `target_vus` users over `duration`; `{{peak}}` = `PEAK_VUS`                                                                                         |
+| [`throughput-profiles.csv`](non-functional/throughput-profiles.csv) | `perf/k6/throughput.js`    | one step of a throughput profile: ramp to `target_rps` requests per second over `duration`; `{{target}}` = `TARGET_RPS` (default 10), `{{stress}}` = `STRESS_RPS` (default 2× target) |
 
-Run a k6 profile with `SCENARIO=<profile>`, e.g. `k6 run -e SCENARIO=spike perf/k6/checkout-flow.js`. A new profile name in the CSV is a new load scenario.
+Run a k6 profile with `SCENARIO=<profile>`, e.g. `k6 run -e SCENARIO=spike perf/k6/checkout-flow.js` or `k6 run -e SCENARIO=sustain -e TARGET_RPS=20 perf/k6/throughput.js`. A new profile name in the CSV is a new load scenario.
 
 ## Rules
 

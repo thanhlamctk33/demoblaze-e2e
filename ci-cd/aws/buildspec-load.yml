@@ -13,6 +13,7 @@ phases:
   build:
     commands:
       - bash ci-cd/scripts/run-load.sh
+      - SCENARIO=sustain K6_SCRIPT=perf/k6/throughput.js bash ci-cd/scripts/run-load.sh
 
 artifacts:
   name: k6-$SCENARIO

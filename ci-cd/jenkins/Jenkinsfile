@@ -10,7 +10,7 @@ pipeline {
     choice(name: 'TARGET', choices: ['all', 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari', 'api', 'perf'], description: 'Playwright project to run')
     string(name: 'GREP', defaultValue: 'all', description: 'Tag or TC ID filter, e.g. @smoke or TC-ORDER-001; "all" runs everything')
     string(name: 'TEST_ENV', defaultValue: 'prod', description: 'Environment from src/config/environments.json')
-    booleanParam(name: 'RUN_LOAD', defaultValue: false, description: 'Also run the k6 checkout load test')
+    booleanParam(name: 'RUN_LOAD', defaultValue: false, description: 'Also run the k6 checkout load and throughput (RPS) tests')
     choice(name: 'SCENARIO', choices: ['smoke', 'load', 'spike'], description: 'k6 profile from test-data/non-functional/load-profiles.csv')
   }
 
@@ -43,6 +43,7 @@ pipeline {
       steps {
         sh "K6_INSTALL_DIR=\$WORKSPACE/.bin bash ci-cd/scripts/install.sh --k6-only"
         sh "PATH=\$WORKSPACE/.bin:\$PATH SCENARIO=${params.SCENARIO} bash ci-cd/scripts/run-load.sh"
+        sh "PATH=\$WORKSPACE/.bin:\$PATH SCENARIO=sustain K6_SCRIPT=perf/k6/throughput.js bash ci-cd/scripts/run-load.sh"
       }
     }
   }

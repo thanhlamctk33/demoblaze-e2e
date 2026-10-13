@@ -1,6 +1,6 @@
 # Test cases
 
-94 test cases for DemoBlaze (70 automated), split into **functional** and **non-functional** testing. Plain CSV (UTF-8): open in Excel or Google Sheets, or view on GitHub as a table.
+96 test cases for DemoBlaze (72 automated), split into **functional** and **non-functional** testing. Plain CSV (UTF-8): open in Excel or Google Sheets, or view on GitHub as a table.
 
 ```
 test-cases/
@@ -26,13 +26,13 @@ What the user can do and what the system must answer: happy paths, negative inpu
 
 How well the system behaves: speed under load, safety with parallel requests, security and support across browsers.
 
-| File                                                                              | Covers                                             |  Cases |    P1 |     P2 |    P3 | Automated | Candidate | Manual |
-| --------------------------------------------------------------------------------- | -------------------------------------------------- | -----: | ----: | -----: | ----: | --------: | --------: | -----: |
-| [`01-performance.csv`](non-functional/01-performance.csv)                         | Page-load and API budgets, k6 smoke / load / spike |      7 |     1 |      4 |     2 |         7 |         0 |      0 |
-| [`02-concurrency.csv`](non-functional/02-concurrency.csv)                         | Parallel requests, idempotency, double-submit      |      8 |     6 |      2 |     0 |         8 |         0 |      0 |
-| [`03-security.csv`](non-functional/03-security.csv)                               | Injection, brute force, card number masking        |      4 |     0 |      4 |     0 |         2 |         1 |      1 |
-| [`04-compatibility-usability.csv`](non-functional/04-compatibility-usability.csv) | Browsers / mobile, keyboard use                    |      3 |     0 |      2 |     1 |         2 |         0 |      1 |
-| **Total**                                                                         |                                                    | **22** | **7** | **12** | **3** |    **19** |     **1** |  **2** |
+| File                                                                              | Covers                                                               |  Cases |    P1 |     P2 |    P3 | Automated | Candidate | Manual |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -----: | ----: | -----: | ----: | --------: | --------: | -----: |
+| [`01-performance.csv`](non-functional/01-performance.csv)                         | Page-load and API budgets, k6 load, throughput (requests per second) |      9 |     1 |      5 |     3 |         9 |         0 |      0 |
+| [`02-concurrency.csv`](non-functional/02-concurrency.csv)                         | Parallel requests, idempotency, double-submit                        |      8 |     6 |      2 |     0 |         8 |         0 |      0 |
+| [`03-security.csv`](non-functional/03-security.csv)                               | Injection, brute force, card number masking                          |      4 |     0 |      4 |     0 |         2 |         1 |      1 |
+| [`04-compatibility-usability.csv`](non-functional/04-compatibility-usability.csv) | Browsers / mobile, keyboard use                                      |      3 |     0 |      2 |     1 |         2 |         0 |      1 |
+| **Total**                                                                         |                                                                      | **24** | **7** | **13** | **4** |    **21** |     **1** |  **2** |
 
 ## Other files
 

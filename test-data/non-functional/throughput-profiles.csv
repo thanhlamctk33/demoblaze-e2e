@@ -1,0 +1,11 @@
+profile,step,duration,target_rps
+rps-smoke,1,0s,2
+rps-smoke,2,30s,2
+sustain,1,20s,{{target}}
+sustain,2,1m,{{target}}
+sustain,3,10s,0
+stress,1,20s,{{target}}
+stress,2,30s,{{target}}
+stress,3,20s,{{stress}}
+stress,4,30s,{{stress}}
+stress,5,10s,0

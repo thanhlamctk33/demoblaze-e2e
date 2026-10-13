@@ -1,7 +1,9 @@
 import { check, group, sleep, fail } from 'k6';
 import exec from 'k6/execution';
 import { Counter, Trend } from 'k6/metrics';
-import { BASE_THRESHOLDS, PRODUCT_IDS, loadProfile } from './lib/config.js';
+import { BASE_THRESHOLDS } from './lib/config.js';
+import { PRODUCT_IDS } from './lib/data.js';
+import { profileNames, profileStages } from './lib/profiles.js';
 import { addToCart, login, placeOrder, signup, viewCart } from './lib/api.js';
 
 const PROFILE = __ENV.SCENARIO || 'smoke';
@@ -9,8 +11,14 @@ const PEAK_VUS = Number(__ENV.PEAK_VUS || 20);
 const ENDPOINT_P95_MS = 1500;
 const EMPTY_CART_RETRIES = 3;
 
-const stages = loadProfile(PROFILE, PEAK_VUS);
-if (!stages) fail(`Unknown SCENARIO "${PROFILE}". Add it to test-data/non-functional/load-profiles.csv`);
+const PROFILES_FILE = 'non-functional/load-profiles.csv';
+
+const stages = profileStages(PROFILES_FILE, PROFILE, 'target_vus', { '{{peak}}': PEAK_VUS });
+if (!stages) {
+  fail(
+    `Unknown SCENARIO "${PROFILE}". Use one of: ${profileNames(PROFILES_FILE).join(', ')} (test-data/${PROFILES_FILE})`,
+  );
+}
 
 const checkoutDuration = new Trend('checkout_duration', true);
 const ordersPlaced = new Counter('orders_placed');
