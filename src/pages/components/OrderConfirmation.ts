@@ -40,7 +40,9 @@ export class OrderConfirmation {
   async getReceipt(): Promise<ReceiptDetails> {
     const text = await this.body.innerText();
     const field = (label: string): string => {
-      const match = text.match(new RegExp(`${label}:\\s*(.*)`));
+      // Anchor to a whole line and never cross a line break: an empty value
+      // (e.g. "Name:" when the name was whitespace) must read as "", not the next line.
+      const match = text.match(new RegExp(`^${label}:[ \\t]*(.*)$`, 'm'));
       if (!match) throw new Error(`Receipt is missing "${label}". Full text:\n${text}`);
       return match[1].trim();
     };
