@@ -1,0 +1,180 @@
+# DemoBlaze E2E Automation Framework
+
+Playwright + TypeScript framework for [DemoBlaze](https://www.demoblaze.com) covering **UI, API, regression and performance** testing of the **Login** and **Cart / Place Order** features, with cross-browser + mobile execution, CI/CD and rich reporting.
+
+| Deliverable                                                      | Location                                                                                                               |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Test case suite (Excel)                                          | [`test-cases/DemoBlaze_TestCases.xlsx`](test-cases/DemoBlaze_TestCases.xlsx) — 76 cases, summary dashboard, defect log |
+| Framework + demo scripts                                         | this repository                                                                                                        |
+| Demo: _login with valid credentials → add to cart → place order_ | [`tests/ui/checkout.spec.ts`](tests/ui/checkout.spec.ts) → `[TC-ORDER-001]`                                            |
+| CI/CD                                                            | [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml), [`Jenkinsfile`](Jenkinsfile)                                 |
+
+---
+
+## Quick start
+
+Requirements: **Node.js ≥ 20**.
+
+```bash
+git clone <this-repo> && cd demoblaze-e2e
+npm ci
+npx playwright install --with-deps      # browsers (one-time)
+cp .env.example .env                    # optional — every value has a default
+
+npm run test:demo                       # the requested demo (TC-LOGIN-001 + TC-ORDER-001) on Chromium
+npm run report                          # open the HTML report
+```
+
+No account setup is needed: the framework **signs up a fresh, unique user per worker through the API**, so runs are isolated and safe in parallel on a shared public site. To use your own account instead, set `TEST_USERNAME` / `TEST_PASSWORD` in `.env`.
+
+### Common commands
+
+| Command                                                 | What it runs                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------- |
+| `npm test`                                              | everything: API, 3 desktop browsers, 2 mobile devices (smoke), perf |
+| `npm run test:demo`                                     | the demo scenarios only (Chromium)                                  |
+| `npm run test:smoke`                                    | `@smoke` on API + Chromium — fast PR gate                           |
+| `npm run test:regression`                               | `@regression` on API + Chromium/Firefox/WebKit                      |
+| `npm run test:cross-browser`                            | full UI suite on Chromium, Firefox, WebKit                          |
+| `npm run test:mobile`                                   | smoke on Pixel 7 + iPhone 14 emulation                              |
+| `npm run test:api` / `npm run test:perf`                | API tests / performance budgets                                     |
+| `npm run test:headed` / `npm run test:ui-mode`          | watch the browser / Playwright UI mode for debugging                |
+| `npm run report` / `npm run report:allure`              | Playwright HTML report / Allure report                              |
+| `npm run summary`                                       | Markdown run summary (+ flaky list, optional AI triage)             |
+| `npm run perf:load`                                     | k6 load test of the catalogue API (needs [k6](https://k6.io))       |
+| `npm run lint` · `npm run typecheck` · `npm run format` | code quality                                                        |
+
+Any Playwright CLI filter works too, e.g. `npx playwright test --grep "TC-CART-00[1-5]" --project=firefox`, or exclude known defects with `--grep-invert @known-bug`.
+
+---
+
+## Framework structure
+
+```
+.
+├── src/
+│   ├── config/            # environments + typed runtime config (env vars > catalogue > defaults)
+│   ├── api/               # DemoblazeApi — typed client for api.demoblaze.com
+│   ├── pages/             # Page Object Model
+│   │   ├── BasePage.ts        # shared navbar + auth modals, open()/waitUntilReady() contract
+│   │   ├── HomePage.ts  ProductPage.ts  CartPage.ts
+│   │   └── components/        # NavBar, LoginModal, SignUpModal, PlaceOrderModal, OrderConfirmation
+│   ├── fixtures/          # custom Playwright fixtures (pages, api, testUser, authenticatedPage)
+│   ├── data/              # test-data factories + product catalogue + expected messages
+│   └── utils/             # alert handling, price parsing, encoding
+├── tests/
+│   ├── ui/                # login.spec.ts, cart.spec.ts, checkout.spec.ts
+│   ├── api/               # auth + catalog/cart API tests
+│   └── perf/              # page-load & API latency budgets
+├── perf/k6/               # load test (k6)
+├── scripts/               # summarize-results.mjs (run summary, flaky report, AI triage)
+├── test-cases/            # Excel test case suite
+├── .github/workflows/     # GitHub Actions pipeline
+├── Jenkinsfile            # Jenkins pipeline
+└── playwright.config.ts   # projects, reporters, retries, timeouts
+```
+
+### Design decisions and rationale
+
+**1. Page Object Model with components.** Pages own _what_ the UI is (locators) and _how_ to do things (`addToCart()`, `purchase()`); specs only describe _what should happen_. Shared widgets (navbar, login/sign-up modals, order modal, receipt) are components composed into `BasePage`, so a selector change is a one-line fix. Locators prefer roles/text and fall back to stable IDs.
+
+**2. Fixtures for dependency injection and isolation.** Specs ask for what they need — `homePage`, `cartPage`, `api`, `testUser`, `authenticatedPage` — instead of building it:
+
+- `testUser` (worker-scoped) signs up a unique account per parallel worker → no shared cart state, no collisions with other people using the public site.
+- `authenticatedPage` logs in **via the API**, injects the session cookie and empties the cart. Login is tested once through the UI (`login.spec.ts`); everything else skips it — faster and less flaky.
+
+**3. Hybrid API + UI testing.** `DemoblazeApi` serves both as the API test client and as a setup/teardown tool (seed carts, clear carts, create users). UI tests stay focused on the behaviour under test.
+
+**4. Handling the site's quirks deterministically.**
+
+- DemoBlaze reports results through native `alert()` dialogs. `captureAlert()` registers a one-shot listener _before_ the click, accepts immediately (avoiding the click/alert deadlock) and returns the text for assertion.
+- The cart renders asynchronously (one `/viewcart` call, then one `/view` per line, total growing as responses arrive). `CartPage` records the backend's line count from the `/viewcart` response, so "empty cart" assertions can't pass before data arrives, and totals are polled until they match the sum of lines.
+- No `waitForTimeout` anywhere (enforced by lint): all waits are web-first assertions, `expect.poll` or `toPass`.
+
+**5. Tags + projects instead of separate suites.** One codebase, filtered at run time:
+`@smoke`, `@regression`, `@e2e`, `@api`, `@perf`, `@security`, `@hybrid`, `@known-bug`, plus feature tags `@login`, `@cart`, `@checkout`. Projects add the platform dimension (Chromium, Firefox, WebKit, Pixel 7, iPhone 14). The navbar component expands the mobile hamburger menu automatically, so the same page objects run on desktop and mobile.
+
+**6. Known defects are executable.** Defects found while designing the suite (see the _Defects & Observations_ sheet) are automated as `test.fail()` tests tagged `@known-bug`: they pass while the bug exists and turn red when it is fixed — prompting the team to promote them to normal regression tests instead of forgetting them.
+
+**7. Traceability.** Every automated test title starts with its Excel ID, e.g. `[TC-ORDER-001]`, so a failure in a report maps straight to a documented test case and vice-versa (column _Automated In_ in the sheet).
+
+**8. Configuration over code.** `src/config` merges `TEST_ENV` (environment catalogue), explicit overrides (`BASE_URL`, `API_URL`), credentials, timeouts and performance budgets from env vars / `.env`. Adding an environment = one entry in `environments.ts`.
+
+### Test types supported
+
+| Type             | How                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| UI / E2E         | `tests/ui`, page objects, all browser + device projects                                                                  |
+| API              | `tests/api`, Playwright `request` + `DemoblazeApi`, contract checks                                                      |
+| Regression       | `@regression` tag across browsers; nightly CI schedule                                                                   |
+| Performance      | `tests/perf`: Navigation Timing + API latency budgets (configurable, metrics attached to the report); `perf/k6` for load |
+| Security (basic) | injection-style input, password masking, card masking (`@security`, `@known-bug`)                                        |
+
+---
+
+## Reporting
+
+Every run produces, under `reports/`:
+
+- **HTML** (`reports/html`) — steps, screenshots, video and trace on failure (`npm run report`)
+- **JUnit XML** (`reports/junit/results.xml`) — for Jenkins / GitLab / Azure test tabs
+- **JSON** (`reports/json/results.json`) — machine-readable, consumed by the summary script
+- **Allure results** (`reports/allure-results`) — `npm run report:allure`
+- **Run summary** (`reports/summary.md`) — counts per project, failures grouped by root-cause signature, **flaky tests** (passed only on retry)
+
+Traces (`trace: retain-on-failure`) can be opened with `npx playwright show-trace <zip>` for time-travel debugging.
+
+### AI-assisted triage (optional)
+
+`scripts/summarize-results.mjs` groups failures by normalised error signature. If `ANTHROPIC_API_KEY` is set (locally or as a CI secret), it sends the grouped failures to an LLM, which classifies each group as **product bug / test bug / environment** and suggests a next step; the result is appended to the summary and the GitHub job summary. Without a key it runs fully offline.
+
+---
+
+## CI/CD
+
+**GitHub Actions** (`.github/workflows/e2e.yml`) runs on push to `main`, pull requests, nightly at 01:00 UTC, and manually (with `grep` and `test_env` inputs):
+
+```
+quality (lint, typecheck, prettier)
+   ├── api tests
+   ├── ui matrix: chromium · firefox · webkit · mobile-chrome · mobile-safari  (parallel, fail-fast off)
+   └── perf budgets
+        └── report: merges all blob reports → single HTML + JSON, job summary, artifact
+              └── (optional) publish HTML report to GitHub Pages
+```
+
+- Browsers are cached per engine; `retries: 2` and `workers: 2` in CI.
+- Optional secrets: `TEST_USERNAME`, `TEST_PASSWORD`, `ANTHROPIC_API_KEY`.
+- To publish the report to GitHub Pages: enable Pages (source: _GitHub Actions_) and set the repository variable `PUBLISH_REPORT=true`.
+
+**Jenkins** (`Jenkinsfile`) runs in the official Playwright Docker image with `PROJECT`, `GREP` and `TEST_ENV` parameters, publishes JUnit + HTML reports and archives artifacts. GitLab CI would follow the same pattern (`image: mcr.microsoft.com/playwright`, `npx playwright test`, `artifacts: reports/`).
+
+---
+
+## Writing a new test
+
+```ts
+import { test, expect } from '../../src/fixtures';
+import { Products } from '../../src/data/catalog';
+import { CartPage } from '../../src/pages';
+
+test('[TC-CART-0XX] my scenario', { tag: '@regression' }, async ({ authenticatedPage, api, testUser }) => {
+  await api.addToCart(testUser.token, Products.nexus6.id); // fast setup via API
+  const cart = new CartPage(authenticatedPage);
+  await cart.open();
+  await cart.expectLineCount(1);
+});
+```
+
+1. Add the case to the Excel sheet and reuse its ID in the title.
+2. Put new selectors/actions in a page object, not in the spec.
+3. Tag it (`@smoke` only for critical-path tests — they also run on mobile).
+4. `npm run lint && npm run typecheck` before pushing.
+
+---
+
+## Known limitations
+
+- DemoBlaze is a shared public demo with variable latency; CI retries absorb transient slowness, and the summary lists any test that needed a retry so it can be fixed rather than hidden.
+- The site creates real data: each run registers throw-away users (`qa_auto_*`) and places demo orders.
+- Performance budgets are deliberately generous for a public site; tighten them per environment through `PERF_*` variables.

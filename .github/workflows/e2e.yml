@@ -1,0 +1,183 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 1 * * *' # nightly full regression (08:00 ICT)
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only run tests matching this tag/title (e.g. @smoke, TC-ORDER-001). Empty = all'
+        required: false
+        default: ''
+      test_env:
+        description: 'Target environment (src/config/environments.ts)'
+        required: false
+        default: 'prod'
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  TEST_ENV: ${{ inputs.test_env || 'prod' }}
+  # Optional: pre-provisioned account. When unset, a fresh user is created per worker.
+  TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+  TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+  GREP_ARGS: ${{ inputs.grep && format('--grep "{0}"', inputs.grep) || '' }}
+
+jobs:
+  quality:
+    name: Lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+
+  api:
+    name: API tests
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Run API tests
+        run: npx playwright test --project=api ${{ env.GREP_ARGS }}
+      - name: Summary
+        if: always()
+        run: node scripts/summarize-results.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blob-report-api
+          path: reports/blob
+          retention-days: 7
+
+  ui:
+    name: UI (${{ matrix.project }})
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: chromium, browser: chromium }
+          - { project: firefox, browser: firefox }
+          - { project: webkit, browser: webkit }
+          - { project: mobile-chrome, browser: chromium }
+          - { project: mobile-safari, browser: webkit }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      - name: Install browser
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install OS dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.browser }}
+      - name: Run UI tests
+        run: npx playwright test --project=${{ matrix.project }} ${{ env.GREP_ARGS }}
+      - name: Summary
+        if: always()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/summarize-results.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blob-report-${{ matrix.project }}
+          path: reports/blob
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: traces-${{ matrix.project }}
+          path: test-results
+          retention-days: 7
+
+  perf:
+    name: Performance budgets
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run performance checks
+        run: npx playwright test --project=perf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blob-report-perf
+          path: reports/blob
+          retention-days: 7
+
+  report:
+    name: Merged report
+    if: always() && needs.quality.result == 'success'
+    needs: [quality, api, ui, perf]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Merge into one HTML + JSON report
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: reports/html
+          PLAYWRIGHT_JSON_OUTPUT_NAME: reports/json/results.json
+        run: npx playwright merge-reports --reporter html,json ./all-blob-reports
+      - name: Run summary (+ optional AI triage)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/summarize-results.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: html-report
+          path: reports/html
+          retention-days: 14
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && vars.PUBLISH_REPORT == 'true'
+        with:
+          path: reports/html
+
+  publish-report:
+    name: Publish report to GitHub Pages
+    if: always() && github.ref == 'refs/heads/main' && vars.PUBLISH_REPORT == 'true' && needs.report.result == 'success'
+    needs: report
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

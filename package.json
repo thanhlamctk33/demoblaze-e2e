@@ -1,0 +1,44 @@
+{
+  "name": "demoblaze-e2e",
+  "version": "1.0.0",
+  "description": "Playwright + TypeScript E2E framework for DemoBlaze (UI, API, performance)",
+  "scripts": {
+    "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:cross-browser": "playwright test --project=chromium --project=firefox --project=webkit",
+    "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
+    "test:api": "playwright test --project=api",
+    "test:perf": "playwright test --project=perf",
+    "test:smoke": "playwright test --grep @smoke --project=api --project=chromium",
+    "test:regression": "playwright test --grep @regression --project=api --project=chromium --project=firefox --project=webkit",
+    "test:demo": "playwright test --grep \"TC-LOGIN-001|TC-ORDER-001\" --project=chromium",
+    "test:headed": "playwright test --project=chromium --headed",
+    "test:ui-mode": "playwright test --ui",
+    "report": "playwright show-report reports/html",
+    "report:allure": "npx allure-commandline generate reports/allure-results --clean -o reports/allure-report && npx allure-commandline open reports/allure-report",
+    "summary": "node scripts/summarize-results.mjs",
+    "perf:load": "k6 run perf/k6/catalog-load.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "install:browsers": "playwright install --with-deps"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
+    "allure-playwright": "^3.13.0",
+    "dotenv": "^18.0.7",
+    "eslint": "^10.12.0",
+    "eslint-plugin-playwright": "^2.12.1",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

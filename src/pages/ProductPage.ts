@@ -1,0 +1,54 @@
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { BasePage } from './BasePage';
+import { captureAlert } from '../utils/dialog';
+import { parsePrice } from '../utils/format';
+
+export class ProductPage extends BasePage {
+  protected readonly path = '/prod.html';
+
+  readonly name: Locator;
+  readonly price: Locator;
+  readonly description: Locator;
+  readonly addToCartButton: Locator;
+
+  constructor(page: Page) {
+    super(page);
+    this.name = page.locator('#tbodyid .name');
+    this.price = page.locator('#tbodyid .price-container');
+    this.description = page.locator('#more-information');
+    this.addToCartButton = page.getByRole('link', { name: 'Add to cart' });
+  }
+
+  async openById(productId: number): Promise<void> {
+    await test.step(`Open product page id=${productId}`, async () => {
+      await this.page.goto(`${this.path}?idp_=${productId}`);
+      await this.waitUntilReady();
+    });
+  }
+
+  /** Product details are loaded asynchronously from POST /view. */
+  async waitUntilReady(): Promise<void> {
+    await expect(this.name).not.toBeEmpty();
+    await expect(this.price).toContainText('$');
+  }
+
+  async getName(): Promise<string> {
+    return (await this.name.innerText()).trim();
+  }
+
+  async getPrice(): Promise<number> {
+    return parsePrice(await this.price.innerText());
+  }
+
+  /**
+   * Clicks "Add to cart" and returns the confirmation alert text.
+   * Waiting for the alert also guarantees the /addtocart request completed,
+   * which prevents racing to the cart page before the item is persisted.
+   */
+  async addToCart(): Promise<string> {
+    return test.step('Add product to cart', async () => {
+      await this.waitUntilReady();
+      return captureAlert(this.page, () => this.addToCartButton.click());
+    });
+  }
+}
