@@ -135,7 +135,7 @@ Resources:
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Source:
         Type: CODEPIPELINE
-        BuildSpec: buildspec.yml
+        BuildSpec: ci-cd/aws/buildspec.yml
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -170,7 +170,7 @@ Resources:
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Source:
         Type: CODEPIPELINE
-        BuildSpec: buildspec-load.yml
+        BuildSpec: ci-cd/aws/buildspec-load.yml
       Artifacts:
         Type: CODEPIPELINE
       Environment:

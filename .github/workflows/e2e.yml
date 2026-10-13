@@ -33,7 +33,7 @@ env:
   # Optional: pre-provisioned account. When unset, a fresh user is created per worker.
   TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
   TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
-  GREP_ARGS: ${{ inputs.grep && format('--grep "{0}"', inputs.grep) || '' }}
+  GREP: ${{ inputs.grep || 'all' }}
 
 jobs:
   quality:
@@ -43,10 +43,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run format:check
+      - run: bash ci-cd/scripts/install.sh --no-browsers
+      - run: TARGET=quality bash ci-cd/scripts/run-tests.sh
 
   api:
     name: API tests
@@ -58,7 +56,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - name: Run API tests
-        run: npx playwright test --project=api ${{ env.GREP_ARGS }}
+        run: TARGET=api bash ci-cd/scripts/run-tests.sh
       - name: Summary
         if: always()
         run: node scripts/summarize-results.mjs
@@ -101,7 +99,7 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps ${{ matrix.browser }}
       - name: Run UI tests
-        run: npx playwright test --project=${{ matrix.project }} ${{ env.GREP_ARGS }}
+        run: TARGET=${{ matrix.project }} bash ci-cd/scripts/run-tests.sh
       - name: Summary
         if: always()
         env:
@@ -131,7 +129,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Run performance checks
-        run: npm run test:perf
+        run: TARGET=perf bash ci-cd/scripts/run-tests.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -148,10 +146,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: grafana/setup-k6-action@v1
       - name: Run checkout flow
-        run: |
-          mkdir -p reports/k6
-          k6 run -e SCENARIO=${{ inputs.k6_scenario || 'smoke' }} \
-            --summary-export=reports/k6/checkout-summary.json perf/k6/checkout-flow.js
+        env:
+          SCENARIO: ${{ inputs.k6_scenario || 'smoke' }}
+        run: bash ci-cd/scripts/run-load.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

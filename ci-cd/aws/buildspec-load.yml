@@ -1,0 +1,20 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    K6_VERSION: v1.1.0
+    SCENARIO: smoke
+
+phases:
+  install:
+    commands:
+      - bash ci-cd/scripts/install.sh --k6-only
+  build:
+    commands:
+      - bash ci-cd/scripts/run-load.sh
+
+artifacts:
+  name: k6-$SCENARIO
+  files:
+    - reports/k6/**/*

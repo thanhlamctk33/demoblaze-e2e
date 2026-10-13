@@ -47,11 +47,10 @@ env:
 phases:
   install:
     commands:
-      - node --version
-      - npm ci
+      - bash ci-cd/scripts/install.sh --no-browsers
   build:
     commands:
-      - bash scripts/ci/codebuild-run.sh
+      - bash ci-cd/scripts/run-tests.sh
   post_build:
     commands:
       - if [ "$TARGET" != "quality" ]; then node scripts/summarize-results.mjs || true; fi

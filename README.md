@@ -72,10 +72,13 @@ demoblaze-e2e/
 │   └── non-functional/     security payloads, k6 load profiles
 ├── perf/k6/                k6 load tests: smoke, load, spike
 │
-├── buildspec.yml           AWS CodeBuild: runs all browsers in parallel
-├── buildspec-load.yml      AWS CodeBuild: k6 load test
-├── infra/aws/              CloudFormation: pipeline, S3 reports, nightly schedule
-├── .github/workflows/      GitHub Actions pipeline
+├── ci-cd/                  everything for pipelines
+│   ├── scripts/            shared Linux scripts: install.sh, run-tests.sh, run-load.sh
+│   ├── aws/                CodePipeline + CodeBuild (CloudFormation, buildspecs)
+│   ├── github-actions/     notes (the workflow itself is in .github/workflows/)
+│   ├── gitlab/             GitLab CI
+│   └── jenkins/            Jenkinsfile
+├── .github/workflows/      GitHub Actions workflow (GitHub requires this location)
 └── playwright.config.ts    browsers, devices, retries, reporters
 ```
 
@@ -134,24 +137,25 @@ After a run, `reports/` contains:
 
 ## 8. CI/CD
 
-**AWS** — [`infra/aws/pipeline.yml`](infra/aws/pipeline.yml) creates two pipelines:
+All pipeline files are in [`ci-cd/`](ci-cd/README.md). Every platform calls the same scripts in `ci-cd/scripts/`, so the pipelines stay identical:
 
-- **On every push / pull request to `main`:** lint + typecheck, API, Chrome, Firefox, Safari, mobile and perf run as parallel CodeBuild builds.
-- **Every night at 01:00 UTC:** the same suite plus the k6 load test.
-
-Reports are stored in S3 for 30 days. Deploy once:
-
-```bash
-aws cloudformation deploy \
-  --stack-name demoblaze-e2e-ci \
-  --template-file infra/aws/pipeline.yml \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides GitHubRepository=<owner>/demoblaze-e2e
+```
+install.sh  →  run-tests.sh (quality, then api / chromium / firefox / webkit / mobile / perf in parallel)  →  reports
+                                                              nightly: run-load.sh (k6)
 ```
 
-Then approve the GitHub connection once in the AWS console (Developer Tools → Settings → Connections).
+| Platform       | File                                                   |
+| -------------- | ------------------------------------------------------ |
+| AWS            | `ci-cd/aws/pipeline.yml` (CloudFormation) + buildspecs |
+| GitHub Actions | `.github/workflows/e2e.yml`                            |
+| GitLab CI      | `ci-cd/gitlab/gitlab-ci.yml`                           |
+| Jenkins        | `ci-cd/jenkins/Jenkinsfile`                            |
 
-**GitHub Actions** — [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) runs the same suite on GitHub.
+Setup steps for each platform are in [`ci-cd/README.md`](ci-cd/README.md). The same scripts work locally:
+
+```bash
+TARGET=chromium GREP=@smoke bash ci-cd/scripts/run-tests.sh
+```
 
 ## 9. Add a new test
 

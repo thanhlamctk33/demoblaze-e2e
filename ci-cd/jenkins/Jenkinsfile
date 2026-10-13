@@ -1,0 +1,57 @@
+pipeline {
+  agent {
+    docker {
+      image 'mcr.microsoft.com/playwright:v1.64.0-noble'
+      args '--ipc=host'
+    }
+  }
+
+  parameters {
+    choice(name: 'TARGET', choices: ['all', 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari', 'api', 'perf'], description: 'Playwright project to run')
+    string(name: 'GREP', defaultValue: 'all', description: 'Tag or TC ID filter, e.g. @smoke or TC-ORDER-001; "all" runs everything')
+    string(name: 'TEST_ENV', defaultValue: 'prod', description: 'Environment from src/config/environments.json')
+    booleanParam(name: 'RUN_LOAD', defaultValue: false, description: 'Also run the k6 checkout load test')
+    choice(name: 'SCENARIO', choices: ['smoke', 'load', 'spike'], description: 'k6 profile from test-data/non-functional/load-profiles.csv')
+  }
+
+  triggers { cron('H 1 * * *') }
+
+  environment {
+    CI = 'true'
+    HOME = "${env.WORKSPACE}"
+    TEST_ENV = "${params.TEST_ENV}"
+    GREP = "${params.GREP}"
+  }
+
+  options {
+    timestamps()
+    timeout(time: 60, unit: 'MINUTES')
+  }
+
+  stages {
+    stage('Install') {
+      steps { sh 'bash ci-cd/scripts/install.sh --no-browsers' }
+    }
+    stage('Quality') {
+      steps { sh 'TARGET=quality bash ci-cd/scripts/run-tests.sh' }
+    }
+    stage('Test') {
+      steps { sh "TARGET=${params.TARGET} bash ci-cd/scripts/run-tests.sh" }
+    }
+    stage('Load') {
+      when { expression { params.RUN_LOAD } }
+      steps {
+        sh "K6_INSTALL_DIR=\$WORKSPACE/.bin bash ci-cd/scripts/install.sh --k6-only"
+        sh "PATH=\$WORKSPACE/.bin:\$PATH SCENARIO=${params.SCENARIO} bash ci-cd/scripts/run-load.sh"
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'node scripts/summarize-results.mjs || true'
+      publishHTML(target: [reportDir: 'reports/html', reportFiles: 'index.html', reportName: 'Playwright Report', keepAll: true, alwaysLinkToLastBuild: true, allowMissing: true])
+      archiveArtifacts artifacts: 'reports/**, test-results/**', allowEmptyArchive: true
+    }
+  }
+}

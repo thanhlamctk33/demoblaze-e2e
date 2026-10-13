@@ -1,0 +1,62 @@
+image: mcr.microsoft.com/playwright:v1.64.0-noble
+
+stages:
+  - quality
+  - test
+  - load
+
+variables:
+  CI: 'true'
+  TEST_ENV: prod
+  GREP: all
+  SCENARIO: smoke
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+default:
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+  before_script:
+    - bash ci-cd/scripts/install.sh --no-browsers
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+    - if: $CI_PIPELINE_SOURCE == 'web'
+
+quality:
+  stage: quality
+  script:
+    - TARGET=quality bash ci-cd/scripts/run-tests.sh
+
+e2e:
+  stage: test
+  parallel:
+    matrix:
+      - TARGET: [api, chromium, firefox, webkit, mobile-chrome, mobile-safari, perf]
+  script:
+    - bash ci-cd/scripts/run-tests.sh
+  after_script:
+    - node scripts/summarize-results.mjs || true
+  artifacts:
+    when: always
+    name: 'e2e-$TARGET'
+    paths: [reports/, test-results/]
+    expire_in: 14 days
+
+k6-load:
+  stage: load
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+    - if: $CI_PIPELINE_SOURCE == 'web'
+  before_script:
+    - K6_INSTALL_DIR=$CI_PROJECT_DIR/.bin bash ci-cd/scripts/install.sh --k6-only
+  script:
+    - PATH=$CI_PROJECT_DIR/.bin:$PATH bash ci-cd/scripts/run-load.sh
+  artifacts:
+    when: always
+    paths: [reports/k6/]
+    expire_in: 14 days

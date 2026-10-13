@@ -11,8 +11,9 @@ if [ "$TARGET" = "quality" ]; then
   exit 0
 fi
 
-args=("--project=$TARGET")
+args=()
+[ "$TARGET" != "all" ] && args+=("--project=$TARGET")
 [ "$TARGET" = "perf" ] && args+=("--no-deps")
 [ -n "$GREP" ] && [ "$GREP" != "all" ] && args+=("--grep" "$GREP")
 
-npx playwright test "${args[@]}"
+npx playwright test ${args[@]+"${args[@]}"}
