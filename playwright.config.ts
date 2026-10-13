@@ -2,9 +2,8 @@ import { defineConfig, devices, type ReporterDescription } from '@playwright/tes
 import { config } from './src/config';
 
 const reporters: ReporterDescription[] = [
-  [config.isCI ? 'github' : 'list'],
+  [process.env.GITHUB_ACTIONS ? 'github' : 'list'],
   ['html', { outputFolder: 'reports/html', open: 'never' }],
-  ['junit', { outputFile: 'reports/junit/results.xml' }],
   ['json', { outputFile: 'reports/json/results.json' }],
   ['allure-playwright', { resultsDir: 'reports/allure-results', detail: true, suiteTitle: true }],
 ];

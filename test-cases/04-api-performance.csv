@@ -1,0 +1,20 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status
+TC-API-001,Auth API,Sign up then log in returns an auth token,Functional,P1,—,new unique user,"1. POST /signup
+2. POST /login",Signup has no errorMessage; login returns 'Auth_token: <token>'.,Automated,tests/api/auth.api.spec.ts,@api @smoke,Not Run
+TC-API-002,Auth API,Duplicate sign-up is rejected,Negative,P2,A registered user exists (auto-provisioned via API by the framework),existing username,1. POST /signup with an existing username,errorMessage 'This user already exist.',Automated,tests/api/auth.api.spec.ts,@api,Not Run
+TC-API-003,Auth API,Wrong password,Negative,P1,A registered user exists (auto-provisioned via API by the framework),wrong password,1. POST /login with wrong password,errorMessage 'Wrong password.',Automated,tests/api/auth.api.spec.ts,@api,Not Run
+TC-API-004,Auth API,Unknown user,Negative,P2,—,random username,1. POST /login,errorMessage 'User does not exist.',Automated,tests/api/auth.api.spec.ts,@api,Not Run
+TC-API-005,Catalog API,/entries contract,Functional,P1,—,—,1. GET /entries,"200; Items[] non-empty; each has id, title, price>0, cat∈{phone,notebook,monitor}, desc, img.",Automated,tests/api/catalog-cart.api.spec.ts,@api @smoke,Not Run
+TC-API-006,Catalog API,/view returns the requested product,Functional,P2,—,id=1,1. POST /view {id:1},Title 'Samsung galaxy s6' and valid contract.,Automated,tests/api/catalog-cart.api.spec.ts,@api,Not Run
+TC-API-007,Catalog API,/bycat filters by category,Functional,P2,—,cat=phone,1. POST /bycat {cat:'phone'},All items have cat='phone'.,Automated,tests/api/catalog-cart.api.spec.ts,@api,Not Run
+TC-API-008,Cart API,"Add, view and delete a cart line",Functional,P1,"Logged-in token, empty cart",Nexus 6,"1. POST /addtocart
+2. POST /viewcart
+3. POST /deleteitem
+4. POST /viewcart","Line present after add, gone after delete.",Automated,tests/api/catalog-cart.api.spec.ts,@api @smoke,Not Run
+TC-API-009,Cart API,Each add creates a separate line,Edge,P2,"Logged-in token, empty cart",Nexus 6 ×2,"1. POST /addtocart twice
+2. POST /viewcart",2 lines with distinct ids.,Automated,tests/api/catalog-cart.api.spec.ts,@api,Not Run
+TC-PERF-001,Performance,Home page load budget,Performance,P2,—,budget PERF_PAGE_LOAD_MS / PERF_PRODUCTS_RENDERED_MS,"1. Navigate to home
+2. Collect Navigation Timing + time to product grid",load < 5s; grid visible < 6s (configurable). Metrics attached to the report.,Automated,tests/perf/performance.perf.spec.ts,@perf,Not Run
+TC-PERF-002,Performance,/entries latency p50,Performance,P2,—,5 calls,1. Call GET /entries 5 times,p50 < 2s (configurable).,Automated,tests/perf/performance.perf.spec.ts,@perf,Not Run
+TC-PERF-003,Performance,/login latency,Performance,P3,A registered user exists (auto-provisioned via API by the framework),—,1. POST /login,Response < 2s (configurable).,Automated,tests/perf/performance.perf.spec.ts,@perf,Not Run
+TC-PERF-004,Load,Catalogue API under concurrent load (k6),Performance,P3,k6 installed,"5–20 virtual users, ~1 min",1. k6 run perf/k6/catalog-load.js,Error rate < 1%; p95 < 2s.,Automated,perf/k6/catalog-load.js,k6,Not Run

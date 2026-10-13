@@ -2,4 +2,3 @@ node_modules/
 reports/
 test-results/
 package-lock.json
-*.xlsx

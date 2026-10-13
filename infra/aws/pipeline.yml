@@ -1,0 +1,395 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DemoBlaze E2E - CI/CD on AWS CodePipeline + CodeBuild (Playwright batch matrix, nightly regression, k6 load)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: demoblaze-e2e
+    AllowedPattern: '^[a-z0-9-]{3,40}$'
+  GitHubRepository:
+    Type: String
+    Description: owner/repository, e.g. thanhlamctk33/demoblaze-e2e
+  BranchName:
+    Type: String
+    Default: main
+  ConnectionArn:
+    Type: String
+    Default: ''
+    Description: Existing AWS CodeConnections ARN for GitHub. Leave empty to create one (must be activated in the console once).
+  PlaywrightImage:
+    Type: String
+    Default: mcr.microsoft.com/playwright:v1.64.0-noble
+  ComputeType:
+    Type: String
+    Default: BUILD_GENERAL1_MEDIUM
+    AllowedValues: [BUILD_GENERAL1_SMALL, BUILD_GENERAL1_MEDIUM, BUILD_GENERAL1_LARGE]
+  NightlySchedule:
+    Type: String
+    Default: cron(0 1 * * ? *)
+  NightlyK6Scenario:
+    Type: String
+    Default: smoke
+    AllowedValues: [smoke, load, spike]
+  ReportRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+
+Conditions:
+  CreateConnection: !Equals [!Ref ConnectionArn, '']
+
+Resources:
+  GitHubConnection:
+    Type: AWS::CodeStarConnections::Connection
+    Condition: CreateConnection
+    Properties:
+      ConnectionName: !Sub '${ProjectName}-github'
+      ProviderType: GitHub
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-reports
+            Status: Enabled
+            ExpirationInDays: !Ref ReportRetentionDays
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt ArtifactBucket.Arn
+              - !Sub '${ArtifactBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}-*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub '${ArtifactBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !GetAtt ArtifactBucket.Arn
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:StopBuild
+                  - codebuild:RetryBuild
+                  - codebuild:BatchGetBuilds
+                Resource: !Sub 'arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${ProjectName}-*'
+
+  E2EProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${ProjectName}-e2e'
+      Description: Playwright UI, API and performance suites, one batch build per project
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: !Ref ComputeType
+        Image: !Ref PlaywrightImage
+        ImagePullCredentialsType: CODEBUILD
+      BuildBatchConfig:
+        ServiceRole: !GetAtt CodeBuildRole.Arn
+        CombineArtifacts: true
+        TimeoutInMins: 60
+        Restrictions:
+          MaximumBuildsAllowed: 10
+          ComputeTypesAllowed:
+            - !Ref ComputeType
+      TimeoutInMinutes: 45
+      QueuedTimeoutInMinutes: 60
+      Cache:
+        Type: LOCAL
+        Modes:
+          - LOCAL_SOURCE_CACHE
+          - LOCAL_CUSTOM_CACHE
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+
+  LoadProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${ProjectName}-k6'
+      Description: k6 checkout flow (smoke, load or spike profile)
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec-load.yml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+      TimeoutInMinutes: 30
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codepipeline
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub '${ArtifactBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !GetAtt ArtifactBucket.Arn
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuildBatch
+                  - codebuild:BatchGetBuildBatches
+                Resource:
+                  - !GetAtt E2EProject.Arn
+                  - !GetAtt LoadProject.Arn
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                  - codeconnections:UseConnection
+                Resource: !If [CreateConnection, !Ref GitHubConnection, !Ref ConnectionArn]
+
+  CommitPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${ProjectName}-commit'
+      PipelineType: V2
+      ExecutionMode: SUPERSEDED
+      RoleArn: !GetAtt PipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Variables:
+        - Name: GREP
+          DefaultValue: all
+          Description: Playwright --grep filter (tag or TC ID); "all" runs everything
+        - Name: TEST_ENV
+          DefaultValue: prod
+      Triggers:
+        - ProviderType: CodeStarSourceConnection
+          GitConfiguration:
+            SourceActionName: Source
+            Push:
+              - Branches:
+                  Includes:
+                    - !Ref BranchName
+            PullRequest:
+              - Events: [OPEN, UPDATED]
+                Branches:
+                  Includes:
+                    - !Ref BranchName
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !If [CreateConnection, !Ref GitHubConnection, !Ref ConnectionArn]
+                FullRepositoryId: !Ref GitHubRepository
+                BranchName: !Ref BranchName
+                DetectChanges: false
+              OutputArtifacts:
+                - Name: SourceOutput
+        - Name: Test
+          Actions:
+            - Name: E2E
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref E2EProject
+                BatchEnabled: 'true'
+                CombineArtifacts: 'true'
+                EnvironmentVariables: '[{"name":"GREP","value":"#{variables.GREP}","type":"PLAINTEXT"},{"name":"TEST_ENV","value":"#{variables.TEST_ENV}","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: E2EReports
+
+  NightlyPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${ProjectName}-nightly'
+      PipelineType: V2
+      ExecutionMode: QUEUED
+      RoleArn: !GetAtt PipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Variables:
+        - Name: GREP
+          DefaultValue: all
+        - Name: TEST_ENV
+          DefaultValue: prod
+        - Name: K6_SCENARIO
+          DefaultValue: !Ref NightlyK6Scenario
+          Description: k6 profile - smoke, load or spike
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !If [CreateConnection, !Ref GitHubConnection, !Ref ConnectionArn]
+                FullRepositoryId: !Ref GitHubRepository
+                BranchName: !Ref BranchName
+                DetectChanges: false
+              OutputArtifacts:
+                - Name: SourceOutput
+        - Name: Test
+          Actions:
+            - Name: E2E
+              RunOrder: 1
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref E2EProject
+                BatchEnabled: 'true'
+                CombineArtifacts: 'true'
+                EnvironmentVariables: '[{"name":"GREP","value":"#{variables.GREP}","type":"PLAINTEXT"},{"name":"TEST_ENV","value":"#{variables.TEST_ENV}","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: E2EReports
+            - Name: K6Checkout
+              RunOrder: 1
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref LoadProject
+                EnvironmentVariables: '[{"name":"SCENARIO","value":"#{variables.K6_SCENARIO}","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: K6Reports
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: start-nightly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource: !Sub 'arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${NightlyPipeline}'
+
+  NightlyRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Nightly full regression + k6 checkout load
+      ScheduleExpression: !Ref NightlySchedule
+      State: ENABLED
+      Targets:
+        - Id: nightly-pipeline
+          Arn: !Sub 'arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${NightlyPipeline}'
+          RoleArn: !GetAtt SchedulerRole.Arn
+
+Outputs:
+  ConnectionArn:
+    Description: Activate this connection once in the console (Developer Tools > Settings > Connections)
+    Value: !If [CreateConnection, !Ref GitHubConnection, !Ref ConnectionArn]
+  CommitPipelineUrl:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${CommitPipeline}/view'
+  NightlyPipelineUrl:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${NightlyPipeline}/view'
+  ReportBucket:
+    Value: !Ref ArtifactBucket

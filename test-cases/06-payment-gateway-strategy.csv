@@ -1,0 +1,94 @@
+﻿ID,Area,Risk addressed,Scenario,Type,Priority,Setup / Preconditions,Steps,Expected Result,Test Level,Tooling,DemoBlaze analogue,Status
+PG-PAY-01,Payment & idempotency,Double charge on client retry,Same Idempotency-Key sent twice returns the original result and charges once,Edge,P1,Merchant account; card token,"1. POST /payments with Idempotency-Key K
+2. Repeat the identical request sequentially and 50x in parallel",One charge in the ledger; every response has the same payment_id and status; replays flagged as replay.,API,"Playwright API, k6",TC-CONC-002,Proposed
+PG-PAY-02,Payment & idempotency,Key reused for a different payment,Same Idempotency-Key with a different amount or card is rejected,Negative,P1,Payment created with key K,1. POST /payments with key K and a different amount,409/422 with a clear error; original payment untouched; no second charge.,API,Playwright API,TC-CONC-005,Proposed
+PG-PAY-03,Payment & idempotency,Idempotency window,After the key TTL (e.g. 24 h) the same key is treated as a new request,Edge,P2,Key K older than TTL (time-travel / short TTL in test env),1. Replay key K after TTL expiry,Behaviour matches the documented policy (new payment or explicit 'key expired' error); no silent duplicate.,Integration,Testcontainers Redis,—,Proposed
+PG-PAY-04,Payment & idempotency,Illegal state transitions,Payment state machine only allows valid transitions,Negative,P1,Payments in each state,"1. Try every transition, e.g. CAPTURED→PENDING, REFUNDED→CAPTURED, VOIDED→CAPTURED",Only PENDING→AUTHORIZED→CAPTURED→(PARTIALLY_)REFUNDED and AUTHORIZED→VOIDED succeed; others return 409 and change nothing.,Unit / API,"Jest, Playwright API",—,Proposed
+PG-PAY-05,Payment & idempotency,Acquirer timeout leaves money in limbo,Acquirer times out after debiting; client retries,Edge,P1,WireMock acquirer delays 35 s then returns success,"1. Create payment
+2. Client times out and retries with the same key
+3. Run status inquiry / reconciliation","Payment stays PENDING, then resolves to the acquirer's real result; customer charged once.",Integration,"WireMock, Testcontainers",—,Proposed
+PG-PAY-06,Payment & idempotency,Duplicate / out-of-order webhooks,Webhook delivered twice and out of order,Edge,P1,Payment AUTHORIZED,"1. Deliver CAPTURED webhook twice
+2. Deliver AUTHORIZED after CAPTURED",Processed once (dedupe on event id); final state CAPTURED; merchant notified once.,Integration,"WireMock, Kafka",—,Proposed
+PG-PAY-07,Payment & idempotency,Forged webhook,Webhook with missing or invalid HMAC signature,Security,P1,Webhook secret configured,"1. POST webhook without signature
+2. POST with a wrong signature
+3. POST with an old timestamp",401/400; no state change; security event logged.,API,Playwright API,—,Proposed
+PG-PAY-08,Payment & idempotency,Over-refund,Refunds cannot exceed the captured amount,Negative,P1,"Payment captured 100,000 VND","1. Refund 60,000
+2. Refund 50,000
+3. Refund 40,000",Second refund rejected; total refunded ≤ captured; balances consistent.,API,Playwright API,—,Proposed
+PG-PAY-09,Payment & idempotency,Rounding / currency errors,Amounts in minor units with correct currency rules,Edge,P1,"VND (0 decimals), USD (2), KWD (3)","1. Pay 0.1 + 0.2 USD
+2. Pay 1 VND
+3. Pay with the max amount",Stored as integer minor units / DECIMAL; no float drift; currency exponent respected.,Unit / API,"Jest, Playwright API",—,Proposed
+PG-PAY-10,Payment & idempotency,Ledger ≠ settlement,Daily reconciliation with the acquirer settlement file,Functional,P1,"Settlement file with a missing, an extra and an amount-mismatch row",1. Run the reconciliation job,All 3 mismatches flagged with reason; matched rows marked SETTLED; report produced.,Batch / Integration,"Testcontainers, S3 (LocalStack)",—,Proposed
+PG-CONC-01,Concurrency,Overdraft via race condition,Two concurrent debits when the balance covers only one,Edge,P1,Wallet balance 100,1. Send two 80 debits at the same time (50 repetitions),Exactly one succeeds each time; balance never negative.,API / Load,"k6, Promise.all",TC-CONC-001,Proposed
+PG-CONC-02,Concurrency,Double submit from UI,Double-click / double-tap on 'Pay',Edge,P1,Checkout page,"1. Double-click 'Pay'
+2. Tap 'Pay' on two devices in the same session",Button disabled after first click; backend creates one payment (idempotency key from client).,E2E,Playwright,"TC-CONC-007, TC-CONC-008",Proposed
+PG-CONC-03,Concurrency,Inconsistent state under parallel operations,Concurrent capture and refund on the same payment,Edge,P1,Payment AUTHORIZED,1. Send capture and void/refund simultaneously,Operations serialized; final state valid; amounts consistent.,API,Playwright API,—,Proposed
+PG-CONC-04,Concurrency,Lost update,Optimistic locking rejects a stale update,Negative,P2,Record version 3,"1. Two clients read v3
+2. Both update",First update wins; second gets 409 and retries with the fresh version.,Integration,Testcontainers Postgres,—,Proposed
+PG-CONC-05,Concurrency,Lost writes under load,N parallel writes are all persisted,Functional,P2,—,"1. Fire N parallel creates
+2. Count persisted rows",Exactly N rows; no duplicates; no deadlock errors.,API / Load,k6,TC-CONC-001,Proposed
+PG-REDIS-01,Redis,Two workers process the same payment,Distributed lock (SET NX PX) on the payment id,Edge,P1,"2 workers, same payment job","1. Start both workers
+2. Kill the lock holder mid-processing",Only one worker processes; lock expires after PX and the job is picked up once.,Integration,Testcontainers Redis,—,Proposed
+PG-REDIS-02,Redis,Idempotency store loses keys,Idempotency keys persisted with correct TTL,Edge,P1,Redis with AOF; DB fallback,"1. Create payment with key K
+2. Restart / flush Redis
+3. Replay K",TTL equals policy; after restart the replay is still detected (AOF or DB fallback).,Integration,Testcontainers Redis,—,Proposed
+PG-REDIS-03,Redis,Stale payment status from cache,Cache invalidated on status change,Functional,P1,Status cached as PENDING,"1. Capture the payment
+2. GET status immediately",Returns CAPTURED; no stale read beyond the documented window.,Integration,Testcontainers Redis,—,Proposed
+PG-REDIS-04,Redis,Redis outage,Service degrades gracefully when Redis is down,Resilience,P1,Load running,"1. Stop the Redis container
+2. Keep sending payments
+3. Start Redis again",Falls back to DB/locks; no 5xx storm; alert fires; full recovery without restart.,Chaos,"Testcontainers, Toxiproxy",—,Proposed
+PG-REDIS-05,Redis,Abuse / overload,Rate limiting per merchant / IP,Negative,P2,Limit 100 req/min,1. Send 101 requests in a minute,101st gets 429 with Retry-After; counter resets after the window.,API,k6,—,Proposed
+PG-REDIS-06,Redis,Cache stampede,Hot key expires under heavy load,Performance,P2,Hot merchant config cached,1. Expire the key during a 500 VU load,Single rebuild (lock / early refresh); DB load stays within limits.,Load,"k6, Grafana",—,Proposed
+PG-MQ-01,Message queue,Duplicate processing (at-least-once),Same event delivered twice,Edge,P1,Kafka / SQS consumer,1. Publish payment.captured with event id E twice,"Consumer is idempotent (dedupe on E); side effects (email, ledger) happen once.",Integration,Testcontainers Kafka,—,Proposed
+PG-MQ-02,Message queue,Out-of-order events,Events for one payment keep their order,Edge,P1,Partition key = payment id,1. Publish authorized → captured → refunded quickly,Consumed in order; final state REFUNDED.,Integration,Testcontainers Kafka,—,Proposed
+PG-MQ-03,Message queue,Poison message blocks the queue,Unprocessable message goes to the DLQ,Negative,P1,Retry policy 3x with backoff,"1. Publish a malformed message
+2. Publish valid messages after it",Malformed one retried 3x then moved to DLQ with error metadata; valid messages keep flowing.,Integration,"Testcontainers Kafka, LocalStack SQS",—,Proposed
+PG-MQ-04,Message queue,Partial processing on crash,Consumer crashes between DB write and ack,Resilience,P1,Offset committed after DB commit,"1. Kill the consumer after the DB write, before commit",Message redelivered; no duplicate row; no lost event.,Chaos,Testcontainers,—,Proposed
+PG-MQ-05,Message queue,DB and events out of sync,Transactional outbox keeps DB and events consistent,Edge,P1,Outbox table + relay,"1. Fail the broker during publish
+2. Roll back the DB transaction",No event without a row and no row without an event; relay retries until delivered.,Integration,Testcontainers Postgres + Kafka,—,Proposed
+PG-MQ-06,Message queue,Backlog under peak,Consumer lag stays below SLA,Performance,P2,Autoscaling consumers,1. Publish 10x normal rate for 10 min,Lag < SLA (e.g. 30 s); backlog drained after the peak.,Load,"k6, CloudWatch",—,Proposed
+PG-MQ-07,Message queue,Breaking schema change,Event schema evolution is backward compatible,Negative,P2,Schema registry (BACKWARD),1. Register a schema with a new required field,Registry rejects it; optional field accepted; old consumers keep working.,Contract,"Schema Registry, ajv",TC-CTR-003,Proposed
+PG-DB-01,Database,Half-done money movement,Transaction atomicity on debit + credit,Edge,P1,Fault injection after the debit,1. Transfer A→B and fail after debiting A,Both rolled back; balances unchanged; error returned.,Integration,Testcontainers Postgres,—,Proposed
+PG-DB-02,Database,Duplicates / orphans,DB constraints enforce integrity,Negative,P1,Schema migrated,"1. Insert duplicate (merchant_id, idempotency_key)
+2. Insert amount ≤ 0
+3. Insert an orphan refund","UNIQUE, CHECK and FK violations rejected by the DB itself.",Integration,Testcontainers Postgres,—,Proposed
+PG-DB-03,Database,Precision loss,"Money columns are DECIMAL / BIGINT minor units, never FLOAT",Functional,P1,Schema,"1. Review the schema
+2. Round-trip boundary amounts",No FLOAT/DOUBLE money columns; values round-trip exactly.,Schema review,"SQL, Jest",—,Proposed
+PG-DB-04,Database,Check-then-act race,Balance check and debit under the right isolation,Edge,P1,READ COMMITTED + SELECT … FOR UPDATE,1. Run concurrent debits (see PG-CONC-01) against the real DB,No overdraft; no deadlock storm; lock wait within budget.,Integration,"Testcontainers Postgres, k6",—,Proposed
+PG-DB-05,Database,Migration breaks prod,Zero-downtime migration (expand / contract) on prod-like volume,Resilience,P1,Snapshot with prod-like volume,"1. Apply migration while traffic runs
+2. Roll back",No downtime or lock timeouts; old and new app versions both work; rollback is clean.,Integration,"Flyway / Liquibase, Testcontainers",—,Proposed
+PG-DB-06,Database,Slow queries at scale,Payment lookups meet latency budgets at prod volume,Performance,P2,50M payments seeded,"1. Query by id, merchant + date range, status",p95 within budget; EXPLAIN shows index use; no full scans.,Load,"k6, pg_stat_statements",—,Proposed
+PG-DB-07,Database,Tampered history,Ledger / audit trail is append-only,Security,P1,App DB role,1. Try UPDATE / DELETE on the ledger as the app role,Denied; every state change has an audit row with actor and timestamp.,Integration,SQL,—,Proposed
+PG-DB-08,Database,Card data exposure,PAN is never stored in clear text,Security,P1,Tokenisation service,"1. Pay with a test card
+2. Search DB, logs and backups for the PAN",Only token / last 4 stored; encrypted at rest (KMS).,Security,"SQL, log search",TC-ORDER-014,Proposed
+PG-AWS-01,AWS,Capacity during spikes,Auto Scaling reacts before the SLA is breached,Performance,P1,ECS/EKS or ASG with target tracking,"1. Run k6 spike 10x
+2. Watch scaling events and latency",New tasks healthy before p95 breaches SLA; scale-in drains connections without errors.,Load,"k6, CloudWatch",TC-K6-003,Proposed
+PG-AWS-02,AWS,Zone failure,Multi-AZ failover (app + RDS),Resilience,P1,Staging in 2+ AZs,1. Inject AZ failure / force RDS failover during load,Error rate below threshold; recovery within RTO; no data loss beyond RPO.,Chaos,"AWS FIS, k6",—,Proposed
+PG-AWS-03,AWS,Queue misconfiguration,SQS visibility timeout and DLQ redrive policy,Functional,P2,LocalStack SQS,"1. Consumer exceeds the visibility timeout
+2. Message fails maxReceiveCount times",Message not processed twice in parallel; moved to DLQ after max receives.,Integration,LocalStack,—,Proposed
+PG-AWS-04,AWS,Leaked secrets,Secrets Manager / KMS key rotation,Security,P1,Rotation enabled,1. Rotate the DB password and signing key during traffic,"No downtime; no secrets in env dumps, logs or images.",Integration,"LocalStack, trufflehog",—,Proposed
+PG-AWS-05,AWS,Over-privileged roles,IAM least privilege,Security,P1,Service roles,1. Use the service role to access another service's bucket / queue,AccessDenied; IAM Access Analyzer shows no public / cross-account access.,Security,IAM Policy Simulator,—,Proposed
+PG-AWS-06,AWS,Settlement files exposed,S3 settlement bucket is encrypted and private,Security,P2,S3 bucket,"1. Check encryption, public access block, lifecycle and access logs",SSE-KMS on; public access blocked; logs enabled; lifecycle per retention policy.,Config audit,"AWS Config, LocalStack",—,Proposed
+PG-AWS-07,AWS,Silent failures,Alarms fire on key signals,Resilience,P2,CloudWatch alarms,"1. Push error rate, p99, DLQ depth and consumer lag over thresholds",Each alarm fires and pages on-call within the target time.,Ops,"CloudWatch, synthetic load",—,Proposed
+PG-AWS-08,AWS,Unrecoverable data,RDS point-in-time restore,Resilience,P2,Automated backups,1. Restore to a point 10 min ago in an isolated account,Restore succeeds within RTO; data matches up to RPO.,Ops,AWS RDS,—,Proposed
+PG-INT-01,API integration,Partner contract drift,Request / response schemas match the partner contract,Functional,P1,Partner sandbox or Pact broker,1. Validate every request and response against JSON Schema / Pact,"No unknown, missing or wrongly-typed fields; CI fails on drift.",Contract,"ajv, Pact",TC-CTR-001 – TC-CTR-005,Proposed
+PG-INT-02,API integration,Partner errors cascade,Retries with backoff + jitter and a circuit breaker,Resilience,P1,WireMock returns 503,"1. Partner returns 503 for 1 min
+2. Partner recovers",Retries bounded; circuit opens then half-opens; no retry storm; recovers automatically.,Integration,"WireMock, Toxiproxy",—,Proposed
+PG-INT-03,API integration,Thread / connection exhaustion,Slow partner responses,Resilience,P1,WireMock adds 20 s latency,1. Run normal load while the partner is slow,Our timeout < upstream timeout; pools not exhausted; other merchants unaffected (bulkhead).,Load,"WireMock, k6",—,Proposed
+PG-INT-04,API integration,Auth token expiry,Partner OAuth token expires mid-flow,Edge,P2,Short-lived token,1. Let the token expire between authorize and capture,Token refreshed and the call retried once; no duplicate charge.,Integration,WireMock,—,Proposed
+PG-INT-05,API integration,Partner throttling,Partner returns 429,Negative,P2,WireMock returns 429 + Retry-After,1. Exceed the partner rate limit,Client waits per Retry-After; queue absorbs the burst; no data loss.,Integration,WireMock,—,Proposed
+PG-INT-06,API integration,Wrong error semantics,Partner codes mapped to documented errors and HTTP status,Negative,P2,Error catalogue,1. Replay each partner decline / error code,Correct 4xx/5xx and error code to the merchant; retriable vs non-retriable flagged.,API,Playwright API,TC-CTR-006,Proposed
+PG-SEC-01,Security,IDOR,Merchant A cannot access merchant B's payments,Security,P1,Two merchants,1. GET / refund B's payment id with A's credentials,403/404; no data leaked; attempt logged.,API,"Playwright API, OWASP ZAP",TC-CART-003,Proposed
+PG-SEC-02,Security,Amount tampering,Client-sent amount is not trusted,Security,P1,"Order 500,000 VND",1. Change the amount to 1 in the request (proxy),Server uses the order amount or rejects; payment not created for 1.,API,"Burp / ZAP, Playwright",—,Proposed
+PG-SEC-03,Security,Injection,SQL / NoSQL / command injection on every input,Security,P1,—,1. Fuzz all parameters with an injection payload list,Inputs treated as data; no 500s or data leakage.,API / DAST,"OWASP ZAP, sqlmap",TC-LOGIN-011,Proposed
+PG-SEC-04,Security,PCI-DSS exposure,PAN masked everywhere it is displayed,Security,P1,Test card,"1. Pay
+2. Inspect UI, receipt, email, logs, API responses",Only first 6 / last 4 shown; no CVV stored anywhere.,E2E / Log audit,"Playwright, log search",TC-ORDER-014,Proposed
+PG-SEC-05,Security,Weak transport,TLS configuration,Security,P2,Public endpoints,1. Scan the endpoints,TLS 1.2+ only; HSTS; no weak ciphers; valid certificates.,Config audit,"testssl.sh, SSL Labs",—,Proposed
+PG-SEC-06,Security,Replay attack,Signed request replayed later,Security,P1,Request signing with timestamp + nonce,"1. Capture a valid signed request
+2. Replay it after 10 min and immediately",Rejected (stale timestamp / reused nonce); no second payment.,API,Playwright API,TC-CONC-002,Proposed
+PG-SEC-07,Security,Credential stuffing,Brute force on login and OTP,Security,P1,Login / OTP endpoints,1. Send 20 wrong passwords / OTPs,Lockout or rate limit after N attempts; alert raised; no user enumeration.,API,"k6, Playwright",TC-LOGIN-002,Proposed
+PG-SEC-08,Security,Fraud without SCA,3-D Secure challenge for risky transactions,Security,P1,3DS test cards (frictionless / challenge / fail),1. Pay with each 3DS test card,Challenge shown when required; failed or abandoned challenge → not captured.,E2E,"Playwright, acquirer sandbox",—,Proposed
+PG-PERF-01,Performance,SLA at peak,Baseline load at expected peak TPS,Performance,P1,Prod-like staging,1. Run k6 at the expected peak TPS for 30 min,"p95 < 300 ms, p99 < 800 ms, error rate < 0.1%.",Load,k6,TC-K6-002,Proposed
+PG-PERF-02,Performance,Flash sale,Spike to 10x traffic within 10 s,Performance,P1,Autoscaling enabled,1. Run the k6 spike profile,No outage; degradation within the agreed budget; recovery to baseline.,Load,k6,TC-K6-003,Proposed
+PG-PERF-03,Performance,Leaks over time,Soak test for 4–8 h,Performance,P2,Normal load,1. Run k6 at 60% of peak for 8 h,"Stable memory, connections and latency; no error growth.",Load,"k6, Grafana",—,Proposed
+PG-PERF-04,Performance,Unknown limits,Stress to breaking point,Performance,P2,Isolated environment,1. Increase TPS stepwise until SLA breach,"Max sustainable TPS and the first bottleneck documented; graceful failure (429/503, not crashes).",Load,k6,—,Proposed

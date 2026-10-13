@@ -1,0 +1,47 @@
+﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status
+TC-ORDER-001,E2E (demo),Logged-in user adds a product and places an order,Functional,P1,"Registered user, empty cart","Samsung galaxy s6; order form: name, country, city, card 4111111111111111, month, year","1. Log in with valid credentials
+2. Open Samsung galaxy s6, note price
+3. Add to cart
+4. Open Cart; verify line and total
+5. Click 'Place Order'; verify modal total
+6. Fill form and click 'Purchase'
+7. Verify receipt; click OK
+8. Re-open Cart","Receipt 'Thank you for your purchase!' with numeric Id, Amount = cart total, Name = entered name, card last 4 digits, today's date; OK returns to home; cart is now empty.",Automated,tests/ui/checkout.spec.ts,@smoke @regression @e2e,Not Run
+TC-ORDER-002,Checkout,Guest orders several products,Functional,P1,Guest,Nexus 6 + Apple monitor 24,"1. Add two products as guest
+2. Open Cart
+3. Place Order with valid data",Receipt Amount = sum of both prices.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-003,Checkout,"Only mandatory fields filled (Name, Credit card)",Edge,P2,Cart has 1 item,country/city/month/year empty,"1. Open Place Order
+2. Fill only Name and Credit card
+3. Click 'Purchase'",Order succeeds; receipt shows the entered name.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-004,Validation,Name empty,Negative,P1,Cart has 1 item,name='',"1. Open Place Order
+2. Fill everything except Name
+3. Click 'Purchase'",Alert 'Please fill out Name and Creditcard.'; no receipt; cart unchanged.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-005,Validation,Credit card empty,Negative,P1,Cart has 1 item,card='',"1. Open Place Order
+2. Fill everything except Credit card
+3. Click 'Purchase'",Alert 'Please fill out Name and Creditcard.'; no receipt; cart unchanged.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-006,Validation,All fields empty,Negative,P2,Cart has 1 item,all empty,"1. Open Place Order
+2. Click 'Purchase' without filling anything",Validation alert; no receipt; cart unchanged.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-007,Validation,Name is whitespace only,Negative,P2,Cart has 1 item,name='   ',"1. Open Place Order
+2. Enter spaces as Name, valid card
+3. Click 'Purchase'",Order is rejected like an empty name.,Automated,tests/ui/checkout.spec.ts,@known-bug,Not Run
+TC-ORDER-008,Validation,Validation message text,UI,P3,Cart has 1 item,name='' card='',"1. Open Place Order
+2. Click 'Purchase'",Alert text is exactly 'Please fill out Name and Creditcard.',Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-009,Modal behaviour,Closing the order form keeps the cart,Edge,P2,Cart has 1 item,valid data,"1. Open Place Order
+2. Fill the form
+3. Click 'Close'
+4. Reload Cart",No order placed; cart still has the item.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-010,Edge input,Unicode / special characters in name,Edge,P3,Cart has 1 item,"Nguyễn Văn Ánh <b>&""'",1. Place an order with the special-character name,Receipt shows the name exactly as typed; no HTML is rendered/executed.,Automated,tests/ui/checkout.spec.ts,@regression,Not Run
+TC-ORDER-011,Receipt,Receipt date shows the current month,Functional,P2,Cart has 1 item,—,"1. Place an order
+2. Read 'Date' on the receipt",Date = today's day/month/year.,Automated,tests/ui/checkout.spec.ts,@known-bug,Not Run
+TC-ORDER-012,Negative,Order with an empty cart,Negative,P1,Empty cart,valid form data,"1. Open empty Cart
+2. Click 'Place Order'
+3. Fill valid data, click 'Purchase'",Order is blocked (nothing to buy).,Automated,tests/ui/checkout.spec.ts,@known-bug,Not Run
+TC-ORDER-013,Validation,Credit card must be numeric,Negative,P2,Cart has 1 item,card='not-a-card',1. Place an order with a non-numeric card,Validation error; order not placed.,Automated,tests/ui/checkout.spec.ts,@known-bug,Not Run
+TC-ORDER-014,Security,Receipt masks the card number,Security,P2,Cart has 1 item,card 4111111111111111,"1. Place an order
+2. Inspect 'Card Number' on the receipt",Only the last 4 digits are shown (e.g. **** 1111).,Automated,tests/ui/checkout.spec.ts,@known-bug,Not Run
+TC-ORDER-015,Validation,Invalid month / year values,Negative,P3,Cart has 1 item,"month=13, year=1999","1. Enter invalid month and a past year
+2. Click 'Purchase'",Validation error for expiry date.,Candidate,,,Not Run
+TC-ORDER-016,Robustness,Double-click 'Purchase',Edge,P3,Cart has 1 item,valid data,"1. Fill valid data
+2. Double-click 'Purchase'",Only one order/receipt is created.,Manual,,,Not Run
+TC-ORDER-017,Edge input,Very long input values,Edge,P3,Cart has 1 item,"300-char name, 50-digit card","1. Fill the form with very long values
+2. Click 'Purchase'","Handled gracefully: validation or truncation, receipt layout not broken.",Candidate,,,Not Run

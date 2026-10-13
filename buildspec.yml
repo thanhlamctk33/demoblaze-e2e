@@ -1,0 +1,67 @@
+version: 0.2
+
+batch:
+  fast-fail: false
+  build-list:
+    - identifier: quality
+      env:
+        variables:
+          TARGET: quality
+    - identifier: api
+      env:
+        variables:
+          TARGET: api
+    - identifier: chromium
+      env:
+        variables:
+          TARGET: chromium
+    - identifier: firefox
+      env:
+        variables:
+          TARGET: firefox
+    - identifier: webkit
+      env:
+        variables:
+          TARGET: webkit
+    - identifier: mobile_chrome
+      env:
+        variables:
+          TARGET: mobile-chrome
+    - identifier: mobile_safari
+      env:
+        variables:
+          TARGET: mobile-safari
+    - identifier: perf
+      env:
+        variables:
+          TARGET: perf
+
+env:
+  shell: bash
+  variables:
+    CI: 'true'
+    TARGET: chromium
+    TEST_ENV: prod
+    GREP: all
+
+phases:
+  install:
+    commands:
+      - node --version
+      - npm ci
+  build:
+    commands:
+      - bash scripts/ci/codebuild-run.sh
+  post_build:
+    commands:
+      - if [ "$TARGET" != "quality" ]; then node scripts/summarize-results.mjs || true; fi
+
+artifacts:
+  name: e2e-$TARGET
+  files:
+    - reports/**/*
+    - test-results/**/*
+
+cache:
+  paths:
+    - /root/.npm/**/*
