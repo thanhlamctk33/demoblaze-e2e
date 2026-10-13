@@ -54,40 +54,93 @@ Run one test case: `npx playwright test --grep TC-ORDER-001`
 
 ## 3. Framework structure
 
+The code is split into **what is tested** (`tests/`), **how it is tested** (`src/`), **with which data** (`test-data/`) and **where it runs** (`ci-cd/`). Tests contain no selectors or site URLs: they call page objects, the API client and fixtures, and take their inputs from `test-data/` or `src/data/`.
+
 ```
 demoblaze-e2e/
-├── tests/                  WHAT is tested
-│   ├── ui/                 login, cart, checkout, double-click / multi-tab
-│   ├── api/                auth, cart, JSON schema contract, concurrency
-│   └── perf/               page-load and API response-time budgets
 │
-├── src/                    HOW it is tested (reusable code)
-│   ├── pages/              Page Objects: HomePage, ProductPage, CartPage
-│   │   └── components/     NavBar and modals (Login, Sign up, Place Order, Receipt)
-│   ├── api/                DemoblazeApi client + JSON schemas
-│   ├── fixtures/           ready-made test helpers (logged-in page, test user, cart setup)
-│   ├── data/               reads test data, generates unique users and orders
-│   ├── config/             environments, timeouts, budgets (.env)
-│   ├── reporters/          clears old Allure results before each run
-│   └── utils/              alerts, prices, network tracking
+├── tests/                          WHAT is tested — one spec file per feature; titles start with the test case ID
+│   ├── ui/                         browser tests (Chromium, Firefox, WebKit, Pixel 7, iPhone 14)
+│   │   ├── login.spec.ts           log in / out, sign up, empty fields, wrong password, session reload, injection payloads
+│   │   ├── cart.spec.ts            add, delete, totals, guest vs. logged-in carts, isolation, cart kept after logout / login
+│   │   ├── checkout.spec.ts        place order end to end (demo TC-ORDER-001), form validation, receipt
+│   │   └── concurrency.spec.ts     double-click on "Add to cart" / "Purchase", same user in two tabs
+│   ├── api/                        backend tests without a browser (api.demoblaze.com)
+│   │   ├── auth.api.spec.ts        sign up and login: success, duplicate user, wrong password
+│   │   ├── catalog-cart.api.spec.ts  product list / details / categories, add / view / delete cart lines
+│   │   ├── contract.api.spec.ts    response format of /login, /addtocart, /viewcart checked against JSON schemas
+│   │   └── concurrency.api.spec.ts parallel writes, replayed requests (idempotency), parallel deletes and orders
+│   └── perf/
+│       └── performance.perf.spec.ts  page-load time and API response-time budgets (single user)
 │
-├── test-cases/             test case documentation (CSV)
-│   ├── functional/         login, cart, place order, API
-│   └── non-functional/     performance, concurrency, security, compatibility
-├── test-data/              test data (CSV)
-│   ├── common/             products (shared with k6)
-│   ├── functional/         logins, valid / invalid orders
-│   └── non-functional/     security payloads, k6 load and throughput profiles
-├── perf/k6/                k6: checkout-flow.js (users: smoke / load / spike), throughput.js (requests per second)
+├── src/                            HOW it is tested — reusable code shared by all tests
+│   ├── pages/                      Page Object Model: selectors + user actions for each page
+│   │   ├── BasePage.ts             common parent: open(), login(), navbar and the login / sign-up modals
+│   │   ├── HomePage.ts             product grid, category filter, opening a product
+│   │   ├── ProductPage.ts          product name / price, "Add to cart"
+│   │   ├── CartPage.ts             cart lines, total, delete line, "Place Order"
+│   │   └── components/             parts used on several pages
+│   │       ├── NavBar.ts           top menu (also opens the mobile hamburger menu)
+│   │       ├── Modal.ts            shared modal behaviour (close button, wait until hidden)
+│   │       ├── LoginModal.ts · SignUpModal.ts · PlaceOrderModal.ts   the three forms
+│   │       └── OrderConfirmation.ts  purchase receipt: reads Id, Amount, Card, Name, Date
+│   ├── api/
+│   │   ├── DemoblazeApi.ts         typed API client used by API tests and for fast test setup / cleanup
+│   │   ├── schemas.ts              JSON schemas of the API responses
+│   │   └── contract.ts             validates a response against a schema (ajv)
+│   ├── fixtures/
+│   │   └── index.ts                test helpers injected into every test: page objects, api, testUser,
+│   │                               authenticatedPage (already logged in), cartWith(...products), fakerSeed
+│   ├── data/
+│   │   ├── catalog.ts              products and expected site messages
+│   │   ├── csv.ts · cases.ts       read the CSV files in test-data/ into typed test cases
+│   │   ├── factories.ts            build users and order forms
+│   │   └── random.ts               Faker data with a reproducible seed (FAKER_SEED)
+│   ├── config/
+│   │   ├── environments.json       URL of the site and API for each environment
+│   │   └── index.ts                merges environment, .env values, timeouts and performance budgets
+│   ├── reporters/
+│   │   └── clean-dir.ts            deletes old Allure results at the start of each run
+│   └── utils/
+│       ├── dialog.ts               captures and accepts browser alerts
+│       ├── format.ts               price parsing, totals, base64 encoding
+│       └── network.ts              counts requests (used to detect double submits)
 │
-├── ci-cd/                  everything for pipelines
-│   ├── scripts/            shared Linux scripts: install.sh, run-tests.sh, run-load.sh
-│   ├── aws/                CodePipeline + CodeBuild (CloudFormation, buildspecs)
-│   ├── github-actions/     notes (the workflow itself is in .github/workflows/)
-│   ├── gitlab/             GitLab CI
-│   └── jenkins/            Jenkinsfile
-├── .github/workflows/      GitHub Actions workflow (GitHub requires this location)
-└── playwright.config.ts    browsers, devices, retries, reporters
+├── test-data/                      WITH WHICH DATA — CSV files; add a row to add a test or a load step
+│   ├── common/products.csv         product ids and names, shared by Playwright and k6
+│   ├── functional/                 login validation cases, accepted / rejected orders, default order values
+│   └── non-functional/             security payloads, k6 user profiles (smoke / load / spike) and
+│                                   throughput profiles (requests per second)
+│
+├── test-cases/                     test case documentation (CSV, opens in Excel / Google Sheets)
+│   ├── functional/                 01-login, 02-cart, 03-place-order, 04-api
+│   ├── non-functional/             01-performance, 02-concurrency, 03-security, 04-compatibility-usability
+│   ├── defects.csv                 bugs found on the site, each linked to the test that proves it
+│   └── payment-gateway-strategy.csv  62 proposed scenarios for a high-traffic payment system (see section 10)
+│
+├── perf/k6/                        load tests (k6)
+│   ├── checkout-flow.js            N users doing login → add to cart → place order (smoke / load / spike)
+│   ├── throughput.js               fixed number of requests per second (sustain / stress)
+│   └── lib/                        shared API calls, thresholds, CSV and profile readers
+│
+├── ci-cd/                          WHERE it runs — every platform calls the same scripts
+│   ├── scripts/
+│   │   ├── install.sh              npm ci, Playwright browsers with OS dependencies, optional k6 (--k6)
+│   │   ├── run-tests.sh            runs one Playwright project / tag (TARGET, GREP)
+│   │   └── run-load.sh             runs a k6 script and profile, saves the summary in reports/k6/
+│   ├── aws/                        CodePipeline (CloudFormation pipeline.yml) + CodeBuild buildspecs
+│   ├── github-actions/             notes; the workflow itself is .github/workflows/ci-cd.yml
+│   ├── gitlab/gitlab-ci.yml        GitLab CI
+│   └── jenkins/Jenkinsfile         Jenkins
+├── .github/workflows/ci-cd.yml     GitHub Actions workflow (GitHub requires this location)
+│
+├── scripts/summarize-results.mjs   writes reports/summary.md: results per browser, failures grouped by cause, flaky tests
+├── reports/                        generated after a run (not committed): html, allure, json, test-results, k6, summary.md
+│
+├── playwright.config.ts            projects (browsers, devices, api, perf), retries, timeouts, reporters
+├── .env.example                    every setting you can override (copy to .env)
+├── tsconfig.json · eslint.config.mjs · .prettierrc.json   TypeScript, lint and formatting rules
+└── package.json                    dependencies and npm scripts (section 2)
 ```
 
 **How a test flows:**
