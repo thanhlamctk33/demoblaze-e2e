@@ -6,7 +6,7 @@ export interface Product {
   category: string;
 }
 
-const PRODUCTS_FILE = 'products.csv';
+const PRODUCTS_FILE = 'common/products.csv';
 
 const productsByKey: Record<string, Product> = Object.fromEntries(
   readCsv(PRODUCTS_FILE).map((row) => [

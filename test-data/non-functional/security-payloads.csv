@@ -1,0 +1,4 @@
+tc_id,name,username,password,expected_alert
+TC-LOGIN-011,classic OR 1=1,' OR '1'='1' -- {{username}},' OR '1'='1,User does not exist.
+TC-LOGIN-011,comment out the password check,admin'-- {{username}},{{password}},User does not exist.
+TC-LOGIN-011,double-quote OR,""" OR """"="" {{username}}",""" OR """"=""",User does not exist.

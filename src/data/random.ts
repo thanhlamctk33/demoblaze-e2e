@@ -31,5 +31,5 @@ const placeholders: Record<string, () => string> = {
 };
 
 export function resolvePlaceholders(value: string): string {
-  return placeholders[value]?.() ?? value;
+  return value.replace(/\{\{\w+\}\}/g, (token) => placeholders[token]?.() ?? token);
 }

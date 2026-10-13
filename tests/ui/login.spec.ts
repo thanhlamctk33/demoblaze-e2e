@@ -1,7 +1,7 @@
 import { test, expect } from '../../src/fixtures';
 import { Messages } from '../../src/data/catalog';
 import { buildUser } from '../../src/data/factories';
-import { loginValidationCases } from '../../src/data/cases';
+import { loginValidationCases, securityPayloadCases } from '../../src/data/cases';
 import { randomPassword, resolvePlaceholders } from '../../src/data/random';
 
 test.describe('Login', { tag: '@login' }, () => {
@@ -87,18 +87,22 @@ test.describe('Login', { tag: '@login' }, () => {
     },
   );
 
-  test(
-    '[TC-LOGIN-011] injection-style input is treated as plain text',
-    { tag: ['@regression', '@security'] },
-    async ({ homePage }) => {
-      await homePage.nav.openLogin();
-      const payload = `' OR '1'='1' -- ${buildUser().username}`;
-      const alert = await homePage.loginModal.loginExpectingAlert(payload, `' OR '1'='1`);
+  for (const c of securityPayloadCases()) {
+    test(
+      `[${c.id}] injection input is treated as plain text (${c.title})`,
+      { tag: ['@regression', '@security'] },
+      async ({ homePage }) => {
+        await homePage.nav.openLogin();
+        const alert = await homePage.loginModal.loginExpectingAlert(
+          resolvePlaceholders(c.username),
+          resolvePlaceholders(c.password),
+        );
 
-      expect(alert).toBe(Messages.login.userNotFound);
-      await homePage.nav.expectLoggedOut();
-    },
-  );
+        expect(alert).toBe(c.expectedAlert);
+        await homePage.nav.expectLoggedOut();
+      },
+    );
+  }
 
   test('[TC-LOGIN-012] a newly signed-up user can log in', { tag: '@regression' }, async ({ homePage }) => {
     const user = buildUser();

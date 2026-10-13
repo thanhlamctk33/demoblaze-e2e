@@ -1,7 +1,7 @@
 import { check, group, sleep, fail } from 'k6';
 import exec from 'k6/execution';
 import { Counter, Trend } from 'k6/metrics';
-import { BASE_THRESHOLDS, PRODUCT_IDS } from './lib/config.js';
+import { BASE_THRESHOLDS, PRODUCT_IDS, loadProfile } from './lib/config.js';
 import { addToCart, login, placeOrder, signup, viewCart } from './lib/api.js';
 
 const PROFILE = __ENV.SCENARIO || 'smoke';
@@ -9,32 +9,8 @@ const PEAK_VUS = Number(__ENV.PEAK_VUS || 20);
 const ENDPOINT_P95_MS = 1500;
 const EMPTY_CART_RETRIES = 3;
 
-const profiles = {
-  smoke: { executor: 'constant-vus', vus: 1, duration: '30s' },
-  load: {
-    executor: 'ramping-vus',
-    startVUs: 0,
-    stages: [
-      { duration: '30s', target: 5 },
-      { duration: '1m', target: 5 },
-      { duration: '15s', target: 0 },
-    ],
-  },
-  spike: {
-    executor: 'ramping-vus',
-    startVUs: 1,
-    stages: [
-      { duration: '10s', target: 1 },
-      { duration: '10s', target: PEAK_VUS },
-      { duration: '30s', target: PEAK_VUS },
-      { duration: '10s', target: 1 },
-      { duration: '20s', target: 1 },
-    ],
-    gracefulRampDown: '10s',
-  },
-};
-
-if (!profiles[PROFILE]) fail(`Unknown SCENARIO "${PROFILE}". Use one of: ${Object.keys(profiles).join(', ')}`);
+const stages = loadProfile(PROFILE, PEAK_VUS);
+if (!stages) fail(`Unknown SCENARIO "${PROFILE}". Add it to test-data/non-functional/load-profiles.csv`);
 
 const checkoutDuration = new Trend('checkout_duration', true);
 const ordersPlaced = new Counter('orders_placed');
@@ -47,7 +23,9 @@ const endpointThresholds = Object.fromEntries(
 );
 
 export const options = {
-  scenarios: { [PROFILE]: profiles[PROFILE] },
+  scenarios: {
+    [PROFILE]: { executor: 'ramping-vus', startVUs: 0, stages, gracefulRampDown: '10s' },
+  },
   setupTimeout: '2m',
   thresholds: {
     ...BASE_THRESHOLDS,
@@ -73,7 +51,7 @@ function checkedCartItems(token) {
 }
 
 export function setup() {
-  const count = PROFILE === 'smoke' ? 1 : PEAK_VUS;
+  const count = Math.max(1, ...stages.map((stage) => stage.target));
   const runId = Date.now();
   const users = Array.from({ length: count }, (_, i) => ({
     username: `qa_k6_${runId}_${i}`,

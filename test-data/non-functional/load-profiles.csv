@@ -1,0 +1,12 @@
+profile,step,duration,target_vus
+smoke,1,0s,1
+smoke,2,30s,1
+load,1,30s,5
+load,2,1m,5
+load,3,15s,0
+spike,1,0s,1
+spike,2,10s,1
+spike,3,10s,{{peak}}
+spike,4,30s,{{peak}}
+spike,5,10s,1
+spike,6,20s,1

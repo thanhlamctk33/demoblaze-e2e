@@ -9,6 +9,8 @@ export interface LoginValidationCase {
   expectedAlert: string;
 }
 
+export type SecurityPayloadCase = LoginValidationCase;
+
 export interface OrderCase {
   id: string;
   title: string;
@@ -23,7 +25,7 @@ export interface RejectedOrderCase extends OrderCase {
   knownBug: string;
 }
 
-export function loginValidationCases(file = 'login-validation.csv'): LoginValidationCase[] {
+export function loginValidationCases(file = 'functional/login-validation.csv'): LoginValidationCase[] {
   return readCsv(file).map((row) => ({
     id: column(row, 'tc_id', file),
     title: column(row, 'title', file),
@@ -33,7 +35,17 @@ export function loginValidationCases(file = 'login-validation.csv'): LoginValida
   }));
 }
 
-export function acceptedOrderCases(file = 'order-accepted.csv'): AcceptedOrderCase[] {
+export function securityPayloadCases(file = 'non-functional/security-payloads.csv'): SecurityPayloadCase[] {
+  return readCsv(file).map((row) => ({
+    id: column(row, 'tc_id', file),
+    title: column(row, 'name', file),
+    username: column(row, 'username', file),
+    password: column(row, 'password', file),
+    expectedAlert: column(row, 'expected_alert', file),
+  }));
+}
+
+export function acceptedOrderCases(file = 'functional/order-accepted.csv'): AcceptedOrderCase[] {
   return readCsv(file).map((row) => ({
     id: column(row, 'tc_id', file),
     title: column(row, 'title', file),
@@ -42,7 +54,7 @@ export function acceptedOrderCases(file = 'order-accepted.csv'): AcceptedOrderCa
   }));
 }
 
-export function rejectedOrderCases(file = 'order-rejected.csv'): RejectedOrderCase[] {
+export function rejectedOrderCases(file = 'functional/order-rejected.csv'): RejectedOrderCase[] {
   return readCsv(file).map((row) => ({
     id: column(row, 'tc_id', file),
     title: column(row, 'title', file),

@@ -66,7 +66,10 @@ demoblaze-e2e/
 ├── test-cases/             test case documentation (CSV)
 │   ├── functional/         login, cart, place order, API
 │   └── non-functional/     performance, concurrency, security, compatibility
-├── test-data/              test data (CSV): products, valid / invalid orders, logins
+├── test-data/              test data (CSV)
+│   ├── common/             products (shared with k6)
+│   ├── functional/         logins, valid / invalid orders
+│   └── non-functional/     security payloads, k6 load profiles
 ├── perf/k6/                k6 load tests: smoke, load, spike
 │
 ├── buildspec.yml           AWS CodeBuild: runs all browsers in parallel
@@ -81,7 +84,7 @@ demoblaze-e2e/
 ```
 test (tests/)  →  fixture (src/fixtures)  →  Page Object / API client (src/pages, src/api)  →  DemoBlaze
                         ↑
-               test data (test-data/*.csv)
+               test data (test-data/**/*.csv)
 ```
 
 ## 4. Design choices
@@ -89,7 +92,7 @@ test (tests/)  →  fixture (src/fixtures)  →  Page Object / API client (src/p
 1. **Page Object Model** — selectors live in `src/pages`, so a UI change is fixed in one place. Tests only describe what should happen.
 2. **Fixtures** — tests ask for what they need instead of building it. Example: `cartWith(Products.nexus6)` adds the product through the API and opens the cart page in one line.
 3. **API for setup, UI for the behaviour under test** — creating users or filling the cart goes through the API: faster and more stable.
-4. **Data-driven** — inputs come from CSV files in `test-data/`. Adding a row adds a test, no code needed.
+4. **Data-driven** — inputs come from CSV files in `test-data/` (functional inputs, security payloads, k6 load profiles). Adding a row adds a test or a load step, no code needed.
 5. **Random realistic data** — usernames and passwords are generated with [Faker](https://fakerjs.dev). Each test records its seed in the report; rerun with `FAKER_SEED=<seed>` to get the same data.
 6. **Isolated runs** — every parallel worker gets its own user, so tests never share a cart.
 7. **Known bugs are tracked** — site defects are tests tagged `@known-bug`. They pass while the bug exists and fail when it is fixed, as a reminder to update them.

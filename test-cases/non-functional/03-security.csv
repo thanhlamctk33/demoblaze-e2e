@@ -1,5 +1,5 @@
 ﻿TC ID,Scenario,Title,Type,Priority,Preconditions,Test Data,Steps,Expected Result,Automation,Automated In,Tags,Status,Actual Result / Notes
-TC-LOGIN-011,Security,SQL-injection style input is treated as text,Security,P2,—,"username=""' OR '1'='1' --"" password=""' OR '1'='1""","1. Open Log in modal
+TC-LOGIN-011,Security,SQL-injection style input is treated as text,Security,P2,—,"Injection payloads in test-data/non-functional/security-payloads.csv (classic OR 1=1, comment-out, double-quote OR)","1. Open Log in modal
 2. Enter the injection payload in both fields
 3. Click 'Log in'","Alert 'User does not exist.'; no authentication bypass, no server error.",Automated,tests/ui/login.spec.ts,@regression @security,Not Run,
 TC-LOGIN-019,Security,Script injection in username is not executed,Security,P2,—,<script>alert(1)</script>,"1. Sign up with the payload as username (if accepted)

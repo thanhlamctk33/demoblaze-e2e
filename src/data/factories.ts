@@ -27,7 +27,7 @@ export function buildUser(overrides: Partial<UserCredentials> = {}): UserCredent
 }
 
 const ORDER_FIELDS = ['name', 'country', 'city', 'card', 'month', 'year'] as const;
-const ORDER_DEFAULTS_FILE = 'order-defaults.csv';
+const ORDER_DEFAULTS_FILE = 'functional/order-defaults.csv';
 const [orderDefaults] = readCsv(ORDER_DEFAULTS_FILE);
 if (!orderDefaults) throw new Error(`test-data/${ORDER_DEFAULTS_FILE} needs one data row`);
 
