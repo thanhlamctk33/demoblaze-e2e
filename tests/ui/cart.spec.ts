@@ -1,4 +1,4 @@
-import { test, expect } from '../../src/fixtures';
+import { test, expect, seedGuestIdentity } from '../../src/fixtures';
 import { Messages, Products } from '../../src/data/catalog';
 import { CartPage, HomePage, ProductPage } from '../../src/pages';
 import { config } from '../../src/config';
@@ -52,6 +52,7 @@ test.describe('Cart — guest user', { tag: '@cart' }, () => {
 
       // A brand-new browser context = a different guest with a different cart cookie.
       const otherContext = await browser.newContext({ baseURL: config.baseURL });
+      await seedGuestIdentity(otherContext);
       const otherCart = new CartPage(await otherContext.newPage());
       await otherCart.open();
       await otherCart.expectLineCount(0);

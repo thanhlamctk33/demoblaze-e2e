@@ -57,6 +57,9 @@ export class OrderConfirmation {
 
   /** Clicking OK sends the user back to the home page. */
   async confirm(): Promise<void> {
+    // SweetAlert adds `visible` once its open animation ends. A click before that
+    // hides the dialog without running the callback, so the redirect never fires.
+    await expect(this.root).toHaveClass(/\bvisible\b/);
     await this.okButton.click();
     await this.page.waitForURL(/index\.html|\/$/);
   }

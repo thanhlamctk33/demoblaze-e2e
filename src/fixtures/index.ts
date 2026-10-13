@@ -1,4 +1,5 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { test as base, expect, type BrowserContext, type Page } from '@playwright/test';
 import { DemoblazeApi } from '../api/DemoblazeApi';
 import { config } from '../config';
 import { buildUser, type UserCredentials } from '../data/factories';
@@ -21,6 +22,16 @@ interface TestFixtures {
 interface WorkerFixtures {
   /** One fresh account per worker: isolated carts, safe for parallel runs. */
   testUser: TestUser;
+}
+
+/**
+ * Gives a context its own guest identity. The site keys a guest cart on the whole
+ * `document.cookie` string, but only index.html creates the `user` cookie; a test that
+ * opens cart.html or prod.html directly would otherwise use the empty string — a cart
+ * shared by every cookieless visitor of the public site.
+ */
+export async function seedGuestIdentity(context: BrowserContext): Promise<void> {
+  await context.addCookies([{ name: 'user', value: randomUUID(), url: config.baseURL }]);
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -50,6 +61,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   ],
 
   // ------------------------------------------------------------- test scope
+
+  context: async ({ context }, use) => {
+    await seedGuestIdentity(context);
+    await use(context);
+  },
 
   api: async ({ request }, use) => {
     await use(new DemoblazeApi(request));

@@ -97,7 +97,9 @@ test.describe('Login', { tag: '@login' }, () => {
     { tag: ['@regression', '@security'] },
     async ({ homePage }) => {
       await homePage.nav.openLogin();
-      const alert = await homePage.loginModal.loginExpectingAlert(`' OR '1'='1' --`, `' OR '1'='1`);
+      // Unique suffix: on the shared public site someone has registered the bare payload as a username.
+      const payload = `' OR '1'='1' -- ${buildUser().username}`;
+      const alert = await homePage.loginModal.loginExpectingAlert(payload, `' OR '1'='1`);
 
       expect(alert).toBe(Messages.login.userNotFound);
       await homePage.nav.expectLoggedOut();

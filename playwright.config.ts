@@ -80,6 +80,9 @@ export default defineConfig({
       name: 'perf',
       testDir: './tests/perf',
       retries: 0,
+      // Measure on an idle machine: in a full run, start only after the functional
+      // projects finish (pass --no-deps to run perf alone, as CI's perf job does).
+      dependencies: ['api', 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari'],
       use: { ...devices['Desktop Chrome'] },
     },
   ],

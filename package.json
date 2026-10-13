@@ -8,7 +8,7 @@
     "test:cross-browser": "playwright test --project=chromium --project=firefox --project=webkit",
     "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
     "test:api": "playwright test --project=api",
-    "test:perf": "playwright test --project=perf",
+    "test:perf": "playwright test --project=perf --no-deps",
     "test:smoke": "playwright test --grep @smoke --project=api --project=chromium",
     "test:regression": "playwright test --grep @regression --project=api --project=chromium --project=firefox --project=webkit",
     "test:demo": "playwright test --grep \"TC-LOGIN-001|TC-ORDER-001\" --project=chromium",

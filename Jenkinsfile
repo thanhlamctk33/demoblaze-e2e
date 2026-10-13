@@ -39,7 +39,8 @@ pipeline {
     stage('Test') {
       steps {
         script {
-          def project = params.PROJECT == 'all' ? '' : "--project=${params.PROJECT}"
+          // perf depends on the functional projects; run it on its own when selected alone
+          def project = params.PROJECT == 'all' ? '' : "--project=${params.PROJECT}${params.PROJECT == 'perf' ? ' --no-deps' : ''}"
           def grep = params.GREP?.trim() ? "--grep \"${params.GREP}\"" : ''
           sh "npx playwright test ${project} ${grep}"
         }

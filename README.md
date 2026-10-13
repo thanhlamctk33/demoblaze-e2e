@@ -29,20 +29,20 @@ No account setup is needed: the framework **signs up a fresh, unique user per wo
 
 ### Common commands
 
-| Command                                                 | What it runs                                                        |
-| ------------------------------------------------------- | ------------------------------------------------------------------- |
-| `npm test`                                              | everything: API, 3 desktop browsers, 2 mobile devices (smoke), perf |
-| `npm run test:demo`                                     | the demo scenarios only (Chromium)                                  |
-| `npm run test:smoke`                                    | `@smoke` on API + Chromium — fast PR gate                           |
-| `npm run test:regression`                               | `@regression` on API + Chromium/Firefox/WebKit                      |
-| `npm run test:cross-browser`                            | full UI suite on Chromium, Firefox, WebKit                          |
-| `npm run test:mobile`                                   | smoke on Pixel 7 + iPhone 14 emulation                              |
-| `npm run test:api` / `npm run test:perf`                | API tests / performance budgets                                     |
-| `npm run test:headed` / `npm run test:ui-mode`          | watch the browser / Playwright UI mode for debugging                |
-| `npm run report` / `npm run report:allure`              | Playwright HTML report / Allure report                              |
-| `npm run summary`                                       | Markdown run summary (+ flaky list, optional AI triage)             |
-| `npm run perf:load`                                     | k6 load test of the catalogue API (needs [k6](https://k6.io))       |
-| `npm run lint` · `npm run typecheck` · `npm run format` | code quality                                                        |
+| Command                                                 | What it runs                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `npm test`                                              | everything: API, 3 desktop browsers, 2 mobile devices (smoke), then perf |
+| `npm run test:demo`                                     | the demo scenarios only (Chromium)                                       |
+| `npm run test:smoke`                                    | `@smoke` on API + Chromium — fast PR gate                                |
+| `npm run test:regression`                               | `@regression` on API + Chromium/Firefox/WebKit                           |
+| `npm run test:cross-browser`                            | full UI suite on Chromium, Firefox, WebKit                               |
+| `npm run test:mobile`                                   | smoke on Pixel 7 + iPhone 14 emulation                                   |
+| `npm run test:api` / `npm run test:perf`                | API tests / performance budgets                                          |
+| `npm run test:headed` / `npm run test:ui-mode`          | watch the browser / Playwright UI mode for debugging                     |
+| `npm run report` / `npm run report:allure`              | Playwright HTML report / Allure report                                   |
+| `npm run summary`                                       | Markdown run summary (+ flaky list, optional AI triage)                  |
+| `npm run perf:load`                                     | k6 load test of the catalogue API (needs [k6](https://k6.io))            |
+| `npm run lint` · `npm run typecheck` · `npm run format` | code quality                                                             |
 
 Any Playwright CLI filter works too, e.g. `npx playwright test --grep "TC-CART-00[1-5]" --project=firefox`, or exclude known defects with `--grep-invert @known-bug`.
 
