@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import path from 'node:path';
-import { environments, type EnvironmentConfig, type EnvironmentName } from './environments';
+import { environments, type EnvironmentConfig } from './environments';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
 
@@ -9,7 +9,7 @@ const num = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) && value !== '' && value !== undefined ? parsed : fallback;
 };
 
-const envName = (process.env.TEST_ENV ?? 'prod') as EnvironmentName;
+const envName = process.env.TEST_ENV ?? 'prod';
 const selected: EnvironmentConfig | undefined = environments[envName];
 if (!selected) {
   throw new Error(`Unknown TEST_ENV "${envName}". Known environments: ${Object.keys(environments).join(', ')}`);

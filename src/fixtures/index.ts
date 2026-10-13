@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test as base, expect, type BrowserContext, type Page } from '@playwright/test';
 import { DemoblazeApi } from '../api/DemoblazeApi';
 import { config } from '../config';
+import type { Product } from '../data/catalog';
 import { buildUser, type UserCredentials } from '../data/factories';
 import { CartPage, HomePage, ProductPage } from '../pages';
 
@@ -14,15 +15,21 @@ interface TestFixtures {
   homePage: HomePage;
   productPage: ProductPage;
   cartPage: CartPage;
+  shopper: TestUser;
   authenticatedPage: Page;
+  cartWith: (...products: Product[]) => Promise<CartPage>;
 }
 
 interface WorkerFixtures {
   testUser: TestUser;
 }
 
+async function setSiteCookie(context: BrowserContext, name: string, value: string): Promise<void> {
+  await context.addCookies([{ name, value, url: config.baseURL }]);
+}
+
 export async function seedGuestIdentity(context: BrowserContext): Promise<void> {
-  await context.addCookies([{ name: 'user', value: randomUUID(), url: config.baseURL }]);
+  await setSiteCookie(context, 'user', randomUUID());
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -60,13 +67,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   productPage: async ({ page }, use) => use(new ProductPage(page)),
   cartPage: async ({ page }, use) => use(new CartPage(page)),
 
-  authenticatedPage: async ({ page, context, api, testUser }, use) => {
-    const token = await api.loginOrFail(testUser.username, testUser.password);
-    testUser.token = token;
-    await api.clearCart(token);
-    await context.addCookies([{ name: 'tokenp_', value: token, url: config.baseURL }]);
-    await use(page);
+  shopper: async ({ api, testUser }, use) => {
+    testUser.token = await api.loginOrFail(testUser.username, testUser.password);
+    await api.clearCart(testUser.token);
+    await use(testUser);
     await api.clearCart(testUser.token).catch(() => undefined);
+  },
+
+  authenticatedPage: async ({ page, context, shopper }, use) => {
+    await setSiteCookie(context, 'tokenp_', shopper.token);
+    await use(page);
+  },
+
+  cartWith: async ({ authenticatedPage, api, shopper }, use) => {
+    await use(async (...products) => {
+      for (const product of products) {
+        expect((await api.addToCart(shopper.token, product.id)).ok(), `add ${product.name} via API`).toBe(true);
+      }
+      const cart = new CartPage(authenticatedPage);
+      await cart.open();
+      await cart.expectLineCount(products.length);
+      return cart;
+    });
   },
 });
 

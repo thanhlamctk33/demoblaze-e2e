@@ -1,14 +1,14 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { captureAlert } from '../../utils/dialog';
+import { Modal } from './Modal';
 
-export class SignUpModal {
-  readonly root: Locator;
+export class SignUpModal extends Modal {
   readonly usernameInput: Locator;
   readonly passwordInput: Locator;
   readonly submitButton: Locator;
 
-  constructor(private readonly page: Page) {
-    this.root = page.locator('#signInModal');
+  constructor(page: Page) {
+    super(page, page.locator('#signInModal'));
     this.usernameInput = this.root.locator('#sign-username');
     this.passwordInput = this.root.locator('#sign-password');
     this.submitButton = this.root.getByRole('button', { name: 'Sign up' });

@@ -1,20 +1,7 @@
 import { test, expect } from '../../src/fixtures';
 import { Categories, Products } from '../../src/data/catalog';
-import type { ProductEntry } from '../../src/api/DemoblazeApi';
-
-function expectProductContract(p: ProductEntry): void {
-  expect(p).toEqual(
-    expect.objectContaining({
-      id: expect.any(Number),
-      title: expect.any(String),
-      price: expect.any(Number),
-      cat: expect.stringMatching(/^(phone|notebook|monitor)$/),
-      desc: expect.any(String),
-      img: expect.any(String),
-    }),
-  );
-  expect(p.price).toBeGreaterThan(0);
-}
+import { expectSchema } from '../../src/api/contract';
+import { productSchema } from '../../src/api/schemas';
 
 test.describe('Catalog API', { tag: ['@api', '@cart'] }, () => {
   test(
@@ -25,14 +12,14 @@ test.describe('Catalog API', { tag: ['@api', '@cart'] }, () => {
 
       expect(response.status()).toBe(200);
       expect(items.length).toBeGreaterThan(0);
-      items.forEach(expectProductContract);
+      for (const item of items) expectSchema(item, productSchema);
     },
   );
 
   test('[TC-API-006] /view returns the requested product', { tag: '@regression' }, async ({ api }) => {
     const product = await api.view(Products.samsungGalaxyS6.id);
 
-    expectProductContract(product);
+    expectSchema(product, productSchema);
     expect(product.title).toBe(Products.samsungGalaxyS6.name);
   });
 
@@ -45,30 +32,25 @@ test.describe('Catalog API', { tag: ['@api', '@cart'] }, () => {
 });
 
 test.describe('Cart API', { tag: ['@api', '@cart'] }, () => {
-  test.beforeEach(async ({ api, testUser }) => {
-    testUser.token = await api.loginOrFail(testUser.username, testUser.password);
-    await api.clearCart(testUser.token);
-  });
-
   test(
     '[TC-API-008] add to cart, view and delete a line',
     { tag: ['@smoke', '@regression'] },
-    async ({ api, testUser }) => {
-      expect((await api.addToCart(testUser.token, Products.nexus6.id)).ok()).toBe(true);
+    async ({ api, shopper }) => {
+      expect((await api.addToCart(shopper.token, Products.nexus6.id)).ok()).toBe(true);
 
-      const lines = await api.viewCart(testUser.token);
+      const lines = await api.viewCart(shopper.token);
       expect(lines.map((l) => l.prod_id)).toEqual([Products.nexus6.id]);
 
       expect((await api.deleteItem(lines[0].id)).ok()).toBe(true);
-      expect(await api.viewCart(testUser.token)).toHaveLength(0);
+      expect(await api.viewCart(shopper.token)).toHaveLength(0);
     },
   );
 
-  test('[TC-API-009] each add creates a separate cart line', { tag: '@regression' }, async ({ api, testUser }) => {
-    await api.addToCart(testUser.token, Products.nexus6.id);
-    await api.addToCart(testUser.token, Products.nexus6.id);
+  test('[TC-API-009] each add creates a separate cart line', { tag: '@regression' }, async ({ api, shopper }) => {
+    await api.addToCart(shopper.token, Products.nexus6.id);
+    await api.addToCart(shopper.token, Products.nexus6.id);
 
-    const lines = await api.viewCart(testUser.token);
+    const lines = await api.viewCart(shopper.token);
     expect(lines).toHaveLength(2);
     expect(new Set(lines.map((l) => l.id)).size).toBe(2);
   });

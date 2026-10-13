@@ -2,6 +2,7 @@ export { BasePage } from './BasePage';
 export { HomePage } from './HomePage';
 export { ProductPage } from './ProductPage';
 export { CartPage, type CartLine } from './CartPage';
+export { Modal } from './components/Modal';
 export { NavBar } from './components/NavBar';
 export { LoginModal } from './components/LoginModal';
 export { SignUpModal } from './components/SignUpModal';

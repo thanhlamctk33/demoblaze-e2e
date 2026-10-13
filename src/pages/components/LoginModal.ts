@@ -1,22 +1,20 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { captureAlert } from '../../utils/dialog';
+import { Modal } from './Modal';
 
-export class LoginModal {
-  readonly root: Locator;
+export class LoginModal extends Modal {
   readonly title: Locator;
   readonly usernameInput: Locator;
   readonly passwordInput: Locator;
   readonly submitButton: Locator;
-  readonly closeButton: Locator;
   readonly dismissIcon: Locator;
 
-  constructor(private readonly page: Page) {
-    this.root = page.locator('#logInModal');
+  constructor(page: Page) {
+    super(page, page.locator('#logInModal'));
     this.title = this.root.locator('.modal-title');
     this.usernameInput = this.root.locator('#loginusername');
     this.passwordInput = this.root.locator('#loginpassword');
     this.submitButton = this.root.getByRole('button', { name: 'Log in' });
-    this.closeButton = this.root.locator('.modal-footer').getByRole('button', { name: 'Close' });
     this.dismissIcon = this.root.locator('.modal-header button.close');
   }
 
@@ -40,10 +38,5 @@ export class LoginModal {
   async loginExpectingAlert(username: string, password: string): Promise<string> {
     await this.fill(username, password);
     return captureAlert(this.page, () => this.submitButton.click());
-  }
-
-  async close(): Promise<void> {
-    await this.closeButton.click();
-    await expect(this.root).toBeHidden();
   }
 }

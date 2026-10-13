@@ -1,31 +1,25 @@
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { BASE_THRESHOLDS, PRODUCT_IDS } from './lib/config.js';
+import { entries, view } from './lib/api.js';
 
-const API_URL = __ENV.API_URL || 'https://api.demoblaze.com';
+const VUS = Number(__ENV.VUS || 5);
 
 export const options = {
   stages: [
-    { duration: '15s', target: Number(__ENV.VUS || 5) },
-    { duration: '30s', target: Number(__ENV.VUS || 5) },
+    { duration: '15s', target: VUS },
+    { duration: '30s', target: VUS },
     { duration: '10s', target: 0 },
   ],
-  thresholds: {
-    http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<2000'],
-  },
+  thresholds: BASE_THRESHOLDS,
 };
 
 export default function () {
-  const entries = http.get(`${API_URL}/entries`);
-  check(entries, {
+  check(entries(), {
     'entries: status 200': (r) => r.status === 200,
     'entries: has items': (r) => (r.json('Items') || []).length > 0,
   });
 
-  const view = http.post(`${API_URL}/view`, JSON.stringify({ id: '1' }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  check(view, { 'view: status 200': (r) => r.status === 200 });
+  check(view(PRODUCT_IDS[0]), { 'view: status 200': (r) => r.status === 200 });
 
   sleep(1);
 }

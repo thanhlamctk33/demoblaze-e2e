@@ -1,12 +1,19 @@
-import type { Page } from '@playwright/test';
+import type { Dialog, Page } from '@playwright/test';
 import { config } from '../config';
+
+const acceptQuietly = (dialog: Dialog) => void dialog.accept().catch(() => undefined);
+
+export function acceptAllDialogs(page: Page): () => void {
+  page.on('dialog', acceptQuietly);
+  return () => page.off('dialog', acceptQuietly);
+}
 
 export async function captureAlert(
   page: Page,
   trigger: () => Promise<unknown>,
   timeout: number = config.timeouts.dialog,
 ): Promise<string> {
-  let onDialog: ((d: import('@playwright/test').Dialog) => void) | undefined;
+  let onDialog: ((dialog: Dialog) => void) | undefined;
 
   const message = new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -16,9 +23,8 @@ export async function captureAlert(
 
     onDialog = (dialog) => {
       clearTimeout(timer);
-      const text = dialog.message();
-      dialog.accept().catch(() => undefined);
-      resolve(text);
+      acceptQuietly(dialog);
+      resolve(dialog.message());
     };
     page.once('dialog', onDialog);
   });

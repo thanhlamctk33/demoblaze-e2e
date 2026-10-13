@@ -1,14 +1,13 @@
-import http from 'k6/http';
 import { check, group, sleep, fail } from 'k6';
-import encoding from 'k6/encoding';
 import exec from 'k6/execution';
-import { Counter, Rate, Trend } from 'k6/metrics';
+import { Counter, Trend } from 'k6/metrics';
+import { BASE_THRESHOLDS, PRODUCT_IDS } from './lib/config.js';
+import { addToCart, login, placeOrder, signup, viewCart } from './lib/api.js';
 
-const API_URL = __ENV.API_URL || 'https://api.demoblaze.com';
 const PROFILE = __ENV.SCENARIO || 'smoke';
 const PEAK_VUS = Number(__ENV.PEAK_VUS || 20);
-const PRODUCTS = [1, 2, 3, 8, 10];
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const ENDPOINT_P95_MS = 1500;
+const EMPTY_CART_RETRIES = 3;
 
 const profiles = {
   smoke: { executor: 'constant-vus', vus: 1, duration: '30s' },
@@ -38,31 +37,26 @@ const profiles = {
 if (!profiles[PROFILE]) fail(`Unknown SCENARIO "${PROFILE}". Use one of: ${Object.keys(profiles).join(', ')}`);
 
 const checkoutDuration = new Trend('checkout_duration', true);
-const businessErrors = new Rate('business_errors');
 const ordersPlaced = new Counter('orders_placed');
+
+const endpointThresholds = Object.fromEntries(
+  ['login', 'addtocart', 'viewcart', 'placeorder'].map((name) => [
+    `http_req_duration{name:${name}}`,
+    [`p(95)<${ENDPOINT_P95_MS}`],
+  ]),
+);
 
 export const options = {
   scenarios: { [PROFILE]: profiles[PROFILE] },
   setupTimeout: '2m',
   thresholds: {
-    http_req_failed: ['rate<0.01'],
+    ...BASE_THRESHOLDS,
     http_req_duration: ['p(95)<2000', 'p(99)<4000'],
-    'http_req_duration{name:login}': ['p(95)<1500'],
-    'http_req_duration{name:addtocart}': ['p(95)<1500'],
-    'http_req_duration{name:viewcart}': ['p(95)<1500'],
-    'http_req_duration{name:placeorder}': ['p(95)<1500'],
+    ...endpointThresholds,
     checks: ['rate>0.99'],
-    business_errors: ['rate<0.01'],
     checkout_duration: ['p(95)<6000'],
   },
 };
-
-function post(name, path, body) {
-  const res = http.post(`${API_URL}${path}`, JSON.stringify(body), { headers: JSON_HEADERS, tags: { name } });
-  const isBusinessError = res.status === 200 && typeof res.body === 'string' && res.body.includes('errorMessage');
-  businessErrors.add(isBusinessError, { name });
-  return res;
-}
 
 function uuid() {
   const hex = () =>
@@ -72,67 +66,61 @@ function uuid() {
   return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-a${hex().slice(1)}-${hex()}${hex()}${hex()}`;
 }
 
-function cartItems(token) {
-  const res = post('viewcart', '/viewcart', { cookie: token, flag: true });
+function checkedCartItems(token) {
+  const { res, items } = viewCart(token);
   check(res, { 'viewcart: status 200': (r) => r.status === 200 });
-  return res.status === 200 ? res.json('Items') || [] : [];
+  return items;
 }
 
 export function setup() {
-  const users = [];
   const count = PROFILE === 'smoke' ? 1 : PEAK_VUS;
   const runId = Date.now();
-  for (let i = 0; i < count; i++) {
-    const user = { username: `qa_k6_${runId}_${i}`, password: `Pw!${runId}${i}` };
-    const res = http.post(
-      `${API_URL}/signup`,
-      JSON.stringify({ username: user.username, password: encoding.b64encode(user.password) }),
-      { headers: JSON_HEADERS, tags: { name: 'setup_signup' } },
-    );
+  const users = Array.from({ length: count }, (_, i) => ({
+    username: `qa_k6_${runId}_${i}`,
+    password: `Pw!${runId}${i}`,
+  }));
+  for (const user of users) {
+    const res = signup(user.username, user.password);
     if (res.status !== 200 || res.body.includes('errorMessage'))
       fail(`signup failed for ${user.username}: ${res.body}`);
-    users.push(user);
   }
   return { users };
 }
 
 export default function ({ users }) {
   const user = users[(exec.vu.idInTest - 1) % users.length];
-  const productId = PRODUCTS[exec.scenario.iterationInTest % PRODUCTS.length];
+  const productId = PRODUCT_IDS[exec.scenario.iterationInTest % PRODUCT_IDS.length];
   const lineId = uuid();
   const start = Date.now();
   let token;
 
   group('01 login', () => {
-    const res = post('login', '/login', { username: user.username, password: encoding.b64encode(user.password) });
-    const body = res.status === 200 ? res.json() : null;
-    check(body, { 'login: returns Auth_token': (b) => typeof b === 'string' && b.startsWith('Auth_token: ') });
-    if (typeof body === 'string') token = body.replace('Auth_token: ', '').trim();
+    token = login(user.username, user.password).token;
+    check(token, { 'login: returns Auth_token': (t) => !!t });
   });
   if (!token) return;
 
   group('02 add to cart', () => {
-    const res = post('addtocart', '/addtocart', { id: lineId, cookie: token, prod_id: productId, flag: true });
-    check(res, { 'addtocart: status 200 with empty body': (r) => r.status === 200 && r.body === '' });
+    check(addToCart(token, productId, lineId), {
+      'addtocart: status 200 with empty body': (r) => r.status === 200 && r.body === '',
+    });
   });
 
   group('03 verify cart', () => {
-    check(cartItems(token), {
+    check(checkedCartItems(token), {
       'viewcart: contains the added line': (items) => items.some((i) => i.id === lineId && i.prod_id === productId),
     });
   });
 
   group('04 place order', () => {
-    const res = post('placeorder', '/deletecart', { cookie: user.username });
-    const ok = check(res, { 'placeorder: status 200': (r) => r.status === 200 });
-    if (ok) ordersPlaced.add(1);
+    if (check(placeOrder(user.username), { 'placeorder: status 200': (r) => r.status === 200 })) ordersPlaced.add(1);
   });
 
   group('05 verify cart emptied', () => {
-    let items = cartItems(token);
-    for (let attempt = 0; attempt < 3 && items.length > 0; attempt++) {
+    let items = checkedCartItems(token);
+    for (let attempt = 0; attempt < EMPTY_CART_RETRIES && items.length > 0; attempt++) {
       sleep(0.5);
-      items = cartItems(token);
+      items = checkedCartItems(token);
     }
     check(items, { 'order: cart is empty afterwards': (i) => i.length === 0 });
   });

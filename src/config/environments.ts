@@ -1,13 +1,8 @@
+import environmentsJson from './environments.json';
+
 export interface EnvironmentConfig {
   baseURL: string;
   apiURL: string;
 }
 
-export const environments = {
-  prod: {
-    baseURL: 'https://www.demoblaze.com',
-    apiURL: 'https://api.demoblaze.com',
-  },
-} satisfies Record<string, EnvironmentConfig>;
-
-export type EnvironmentName = keyof typeof environments;
+export const environments: Record<string, EnvironmentConfig> = environmentsJson;

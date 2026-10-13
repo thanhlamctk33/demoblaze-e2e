@@ -1,11 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { OrderDetails } from '../../data/factories';
-import { captureAlert } from '../../utils/dialog';
+import { acceptAllDialogs, captureAlert } from '../../utils/dialog';
 import { parsePrice } from '../../utils/format';
-import { OrderConfirmation } from './OrderConfirmation';
+import { Modal } from './Modal';
+import { OrderConfirmation, type ReceiptDetails } from './OrderConfirmation';
 
-export class PlaceOrderModal {
-  readonly root: Locator;
+export class PlaceOrderModal extends Modal {
   readonly totalLabel: Locator;
   readonly name: Locator;
   readonly country: Locator;
@@ -14,11 +14,10 @@ export class PlaceOrderModal {
   readonly month: Locator;
   readonly year: Locator;
   readonly purchaseButton: Locator;
-  readonly closeButton: Locator;
   readonly confirmation: OrderConfirmation;
 
-  constructor(private readonly page: Page) {
-    this.root = page.locator('#orderModal');
+  constructor(page: Page) {
+    super(page, page.locator('#orderModal'));
     this.totalLabel = this.root.locator('#totalm');
     this.name = this.root.locator('#name');
     this.country = this.root.locator('#country');
@@ -27,7 +26,6 @@ export class PlaceOrderModal {
     this.month = this.root.locator('#month');
     this.year = this.root.locator('#year');
     this.purchaseButton = this.root.getByRole('button', { name: 'Purchase' });
-    this.closeButton = this.root.locator('.modal-footer').getByRole('button', { name: 'Close' });
     this.confirmation = new OrderConfirmation(page);
   }
 
@@ -66,6 +64,10 @@ export class PlaceOrderModal {
     });
   }
 
+  async placeOrder(details: OrderDetails): Promise<ReceiptDetails> {
+    return (await this.purchase(details)).getReceipt();
+  }
+
   async purchaseExpectingAlert(details: Partial<OrderDetails>): Promise<string> {
     await this.fill(details);
     return captureAlert(this.page, () => this.purchaseButton.click());
@@ -73,8 +75,7 @@ export class PlaceOrderModal {
 
   async submitAndCheckConfirmed(details: Partial<OrderDetails>, waitMs = 5_000): Promise<boolean> {
     await this.fill(details);
-    const acceptAny = (d: import('@playwright/test').Dialog) => void d.accept().catch(() => undefined);
-    this.page.on('dialog', acceptAny);
+    const stopAccepting = acceptAllDialogs(this.page);
     try {
       await this.purchaseButton.click();
       return await this.confirmation.root
@@ -82,12 +83,7 @@ export class PlaceOrderModal {
         .then(() => true)
         .catch(() => false);
     } finally {
-      this.page.off('dialog', acceptAny);
+      stopAccepting();
     }
-  }
-
-  async close(): Promise<void> {
-    await this.closeButton.click();
-    await expect(this.root).toBeHidden();
   }
 }

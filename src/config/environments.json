@@ -1,0 +1,6 @@
+{
+  "prod": {
+    "baseURL": "https://www.demoblaze.com",
+    "apiURL": "https://api.demoblaze.com"
+  }
+}

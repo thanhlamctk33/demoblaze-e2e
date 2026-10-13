@@ -2,15 +2,7 @@ import { test, expect, seedGuestIdentity } from '../../src/fixtures';
 import { Messages, Products } from '../../src/data/catalog';
 import { CartPage, HomePage, ProductPage } from '../../src/pages';
 import { config } from '../../src/config';
-import type { Page } from '@playwright/test';
-
-async function addProductViaUi(page: Page, productId: number): Promise<number> {
-  const productPage = new ProductPage(page);
-  await productPage.openById(productId);
-  const price = await productPage.getPrice();
-  expect(await productPage.addToCart()).toMatch(Messages.cart.productAdded);
-  return price;
-}
+import { sum } from '../../src/utils/format';
 
 test.describe('Cart — guest user', { tag: '@cart' }, () => {
   test(
@@ -41,8 +33,8 @@ test.describe('Cart — guest user', { tag: '@cart' }, () => {
   test(
     '[TC-CART-003] cart of one guest is not visible to another guest',
     { tag: '@regression' },
-    async ({ page, browser }) => {
-      await addProductViaUi(page, Products.nexus6.id);
+    async ({ productPage, browser }) => {
+      await productPage.addProductToCart(Products.nexus6.id);
 
       const otherContext = await browser.newContext({ baseURL: config.baseURL });
       await seedGuestIdentity(otherContext);
@@ -58,12 +50,12 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
   test(
     '[TC-CART-004] logged-in user can add a product',
     { tag: ['@smoke', '@regression'] },
-    async ({ authenticatedPage, testUser }) => {
+    async ({ authenticatedPage, shopper }) => {
       const home = new HomePage(authenticatedPage);
       await home.open();
-      await home.nav.expectLoggedInAs(testUser.username);
+      await home.nav.expectLoggedInAs(shopper.username);
 
-      const price = await addProductViaUi(authenticatedPage, Products.nokiaLumia1520.id);
+      const price = await new ProductPage(authenticatedPage).addProductToCart(Products.nokiaLumia1520.id);
 
       const cart = new CartPage(authenticatedPage);
       await cart.open();
@@ -77,15 +69,16 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
     { tag: '@regression' },
     async ({ authenticatedPage }) => {
       const items = [Products.samsungGalaxyS6, Products.sonyVaioI5, Products.appleMonitor24];
+      const productPage = new ProductPage(authenticatedPage);
       const prices: number[] = [];
-      for (const item of items) prices.push(await addProductViaUi(authenticatedPage, item.id));
+      for (const item of items) prices.push(await productPage.addProductToCart(item.id));
 
       const cart = new CartPage(authenticatedPage);
       await cart.open();
       await cart.expectLineCount(items.length);
       const titles = (await cart.getLines()).map((l) => l.title).sort();
       expect(titles).toEqual(items.map((i) => i.name).sort());
-      expect(await cart.expectTotalMatchesLines()).toBe(prices.reduce((a, b) => a + b, 0));
+      expect(await cart.expectTotalMatchesLines()).toBe(sum(prices));
     },
   );
 
@@ -93,8 +86,9 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
     '[TC-CART-006] adding the same product twice creates two lines',
     { tag: '@regression' },
     async ({ authenticatedPage }) => {
-      const price = await addProductViaUi(authenticatedPage, Products.nexus6.id);
-      await addProductViaUi(authenticatedPage, Products.nexus6.id);
+      const productPage = new ProductPage(authenticatedPage);
+      const price = await productPage.addProductToCart(Products.nexus6.id);
+      await productPage.addProductToCart(Products.nexus6.id);
 
       const cart = new CartPage(authenticatedPage);
       await cart.open();
@@ -106,14 +100,10 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
   test(
     '[TC-CART-007] deleting a line removes it and updates the total',
     { tag: '@regression' },
-    async ({ authenticatedPage, api, testUser }) => {
-      await api.addToCart(testUser.token, Products.samsungGalaxyS6.id);
-      await api.addToCart(testUser.token, Products.appleMonitor24.id);
+    async ({ api, cartWith }) => {
+      const cart = await cartWith(Products.samsungGalaxyS6, Products.appleMonitor24);
       const keptPrice = (await api.view(Products.appleMonitor24.id)).price;
 
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(2);
       await cart.deleteLine(Products.samsungGalaxyS6.name, 1);
 
       expect((await cart.getLines()).map((l) => l.title)).toEqual([Products.appleMonitor24.name]);
@@ -121,33 +111,25 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
     },
   );
 
-  test(
-    '[TC-CART-008] deleting the last line leaves an empty cart',
-    { tag: '@regression' },
-    async ({ authenticatedPage, api, testUser }) => {
-      await api.addToCart(testUser.token, Products.nexus6.id);
+  test('[TC-CART-008] deleting the last line leaves an empty cart', { tag: '@regression' }, async ({ cartWith }) => {
+    const cart = await cartWith(Products.nexus6);
+    await cart.deleteLine(Products.nexus6.name, 0);
 
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(1);
-      await cart.deleteLine(Products.nexus6.name, 0);
-
-      expect(await cart.getTotal()).toBeNull();
-    },
-  );
+    expect(await cart.getTotal()).toBeNull();
+  });
 
   test(
     '[TC-CART-009] cart persists across logout and login',
     { tag: '@regression' },
-    async ({ authenticatedPage, testUser }) => {
-      await addProductViaUi(authenticatedPage, Products.sonyVaioI5.id);
+    async ({ authenticatedPage, shopper }) => {
+      await new ProductPage(authenticatedPage).addProductToCart(Products.sonyVaioI5.id);
       const home = new HomePage(authenticatedPage);
       await home.open();
       await home.nav.logout();
       await home.nav.expectLoggedOut();
 
       await home.open();
-      await home.login(testUser.username, testUser.password);
+      await home.login(shopper.username, shopper.password);
 
       const cart = new CartPage(authenticatedPage);
       await cart.open();
@@ -159,15 +141,12 @@ test.describe('Cart — logged-in user', { tag: '@cart' }, () => {
   test(
     '[TC-CART-010] items added via API are rendered in the UI cart',
     { tag: ['@regression', '@hybrid'] },
-    async ({ authenticatedPage, api, testUser }) => {
-      const ids = [Products.samsungGalaxyS6.id, Products.nokiaLumia1520.id];
-      for (const id of ids) expect((await api.addToCart(testUser.token, id)).ok()).toBeTruthy();
-      const expectedTotal = (await Promise.all(ids.map((id) => api.view(id)))).reduce((acc, p) => acc + p.price, 0);
+    async ({ api, cartWith }) => {
+      const products = [Products.samsungGalaxyS6, Products.nokiaLumia1520];
+      const cart = await cartWith(...products);
+      const prices = await Promise.all(products.map(async (p) => (await api.view(p.id)).price));
 
-      const cart = new CartPage(authenticatedPage);
-      await cart.open();
-      await cart.expectLineCount(ids.length);
-      expect(await cart.expectTotalMatchesLines()).toBe(expectedTotal);
+      expect(await cart.expectTotalMatchesLines()).toBe(sum(prices));
     },
   );
 });

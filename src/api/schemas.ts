@@ -1,4 +1,6 @@
 import type { JSONSchemaType } from 'ajv';
+import { AUTH_TOKEN_PREFIX, type ProductEntry } from './DemoblazeApi';
+import { Categories } from '../data/catalog';
 
 export interface ErrorBody {
   errorMessage: string;
@@ -16,7 +18,20 @@ export interface ViewCartBody {
 
 export const loginSuccessSchema: JSONSchemaType<string> = {
   type: 'string',
-  pattern: '^Auth_token: \\S+$',
+  pattern: `^${AUTH_TOKEN_PREFIX}\\S+$`,
+};
+
+export const productSchema: JSONSchemaType<ProductEntry> = {
+  type: 'object',
+  properties: {
+    id: { type: 'integer' },
+    title: { type: 'string', minLength: 1 },
+    price: { type: 'number', exclusiveMinimum: 0 },
+    cat: { type: 'string', enum: Object.values(Categories) },
+    desc: { type: 'string' },
+    img: { type: 'string' },
+  },
+  required: ['id', 'title', 'price', 'cat', 'desc', 'img'],
 };
 
 export const errorSchema: JSONSchemaType<ErrorBody> = {

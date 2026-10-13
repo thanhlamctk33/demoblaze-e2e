@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { Messages } from '../data/catalog';
 import { captureAlert } from '../utils/dialog';
 import { parsePrice } from '../utils/format';
 
@@ -44,5 +45,12 @@ export class ProductPage extends BasePage {
       await this.waitUntilReady();
       return captureAlert(this.page, () => this.addToCartButton.click());
     });
+  }
+
+  async addProductToCart(productId: number): Promise<number> {
+    await this.openById(productId);
+    const price = await this.getPrice();
+    expect(await this.addToCart()).toMatch(Messages.cart.productAdded);
+    return price;
   }
 }
