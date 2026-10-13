@@ -1,4 +1,4 @@
-name: E2E Tests
+name: CI/CD
 
 on:
   push:
@@ -24,7 +24,7 @@ on:
         options: [smoke, load, spike]
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: ci-cd-${{ github.ref }}
   cancel-in-progress: true
 
 env:

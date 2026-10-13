@@ -16,12 +16,12 @@ ci-cd/
 
 ## Platforms
 
-| Platform       | File                                                           | How to connect it                                                                                                                         |
-| -------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| AWS            | [`aws/pipeline.yml`](aws/pipeline.yml) (creates everything)    | Deploy the CloudFormation stack, then approve the GitHub connection once (see below)                                                      |
-| GitHub Actions | [`../.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) | Nothing: GitHub runs it on push. It must stay in `.github/workflows/` ([why](github-actions/README.md))                                   |
-| GitLab CI      | [`gitlab/gitlab-ci.yml`](gitlab/gitlab-ci.yml)                 | Settings → CI/CD → General pipelines → CI/CD configuration file: `ci-cd/gitlab/gitlab-ci.yml`                                             |
-| Jenkins        | [`jenkins/Jenkinsfile`](jenkins/Jenkinsfile)                   | New Pipeline job → Pipeline script from SCM → Script Path: `ci-cd/jenkins/Jenkinsfile` (needs Docker Pipeline and HTML Publisher plugins) |
+| Platform       | File                                                               | How to connect it                                                                                                                         |
+| -------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| AWS            | [`aws/pipeline.yml`](aws/pipeline.yml) (creates everything)        | Deploy the CloudFormation stack, then approve the GitHub connection once (see below)                                                      |
+| GitHub Actions | [`../.github/workflows/ci-cd.yml`](../.github/workflows/ci-cd.yml) | Nothing: GitHub runs it on push. It must stay in `.github/workflows/` ([why](github-actions/README.md))                                   |
+| GitLab CI      | [`gitlab/gitlab-ci.yml`](gitlab/gitlab-ci.yml)                     | Settings → CI/CD → General pipelines → CI/CD configuration file: `ci-cd/gitlab/gitlab-ci.yml`                                             |
+| Jenkins        | [`jenkins/Jenkinsfile`](jenkins/Jenkinsfile)                       | New Pipeline job → Pipeline script from SCM → Script Path: `ci-cd/jenkins/Jenkinsfile` (needs Docker Pipeline and HTML Publisher plugins) |
 
 All four run the same flow: **install → quality (lint, typecheck, format) → tests per target → reports**, plus a nightly k6 load test.
 

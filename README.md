@@ -147,7 +147,7 @@ install.sh  →  run-tests.sh (quality, then api / chromium / firefox / webkit /
 | Platform       | File                                                   |
 | -------------- | ------------------------------------------------------ |
 | AWS            | `ci-cd/aws/pipeline.yml` (CloudFormation) + buildspecs |
-| GitHub Actions | `.github/workflows/e2e.yml`                            |
+| GitHub Actions | `.github/workflows/ci-cd.yml`                          |
 | GitLab CI      | `ci-cd/gitlab/gitlab-ci.yml`                           |
 | Jenkins        | `ci-cd/jenkins/Jenkinsfile`                            |
 

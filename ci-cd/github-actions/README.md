@@ -1,6 +1,6 @@
 # GitHub Actions
 
-The workflow is [`.github/workflows/e2e.yml`](../../.github/workflows/e2e.yml). GitHub only runs workflow files from `.github/workflows/`, so it cannot live in this folder.
+The workflow is [`.github/workflows/ci-cd.yml`](../../.github/workflows/ci-cd.yml). GitHub only runs workflow files from `.github/workflows/`, so it cannot live in this folder.
 
 Its steps call the shared scripts in [`../scripts/`](../scripts), like every other platform.
 
