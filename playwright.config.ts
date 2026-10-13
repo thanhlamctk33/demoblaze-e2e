@@ -1,11 +1,14 @@
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 import { config } from './src/config';
 
+const ALLURE_RESULTS_DIR = 'reports/allure-results';
+
 const reporters: ReporterDescription[] = [
   [process.env.GITHUB_ACTIONS ? 'github' : 'list'],
   ['html', { outputFolder: 'reports/html', open: 'never' }],
   ['json', { outputFile: 'reports/json/results.json' }],
-  ['allure-playwright', { resultsDir: 'reports/allure-results', detail: true, suiteTitle: true }],
+  ['./src/reporters/clean-dir.ts', { dir: ALLURE_RESULTS_DIR }],
+  ['allure-playwright', { resultsDir: ALLURE_RESULTS_DIR, detail: true, suiteTitle: true }],
 ];
 if (config.isCI) reporters.push(['blob', { outputDir: 'reports/blob' }]);
 
